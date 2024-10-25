@@ -107,6 +107,8 @@ export default class CollectorConfiguration extends tsc<IProps> {
     name: '',
   };
   name = '';
+  // 延迟更新，detailData更新后tab页未展示时不处理
+  shouldUpdate = false;
 
   get historyList() {
     return [
@@ -122,10 +124,20 @@ export default class CollectorConfiguration extends tsc<IProps> {
     return { tab, property, data: v };
   }
 
-  @Watch('show', { immediate: true })
+  @Watch('show')
   handleShow(v: boolean) {
-    if (v) {
+    if (v && this.shouldUpdate) {
       this.getDetailData();
+      this.shouldUpdate = false;
+    }
+  }
+
+  @Watch('detailData')
+  handleDetailDataChange() {
+    if (this.show) {
+      this.getDetailData();
+    } else {
+      this.shouldUpdate = true;
     }
   }
 

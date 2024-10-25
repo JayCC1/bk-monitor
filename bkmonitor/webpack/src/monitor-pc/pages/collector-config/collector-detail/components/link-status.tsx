@@ -73,15 +73,20 @@ export default class LinkStatus extends tsc<LinkStatusProps, {}> {
     isShow: false,
     data: '',
   };
+  chartIsInit = false;
 
-  @Watch('show')
+  @Watch('show', { immediate: true })
   handleShowChange(val) {
     if (val) {
       if (this.collectId) this.init();
-      this.$nextTick(() => {
-        this.minuteChart.chartResize();
-        this.dayChart.chartResize();
-      });
+      if (this.chartIsInit) {
+        this.$nextTick(() => {
+          this.minuteChart.chartResize();
+          this.dayChart.chartResize();
+        });
+      } else {
+        this.chartIsInit = true;
+      }
     }
   }
 
@@ -152,28 +157,30 @@ export default class LinkStatus extends tsc<LinkStatusProps, {}> {
     return (
       <div class='link-status-component'>
         <div class='panel-title'>{this.$t('数据量趋势')}</div>
-        <div class='chart-panel'>
-          <div class='chart-container'>
-            <LinkStatusChart
-              ref='minuteChartRef'
-              data={this.minuteChartConfig.data}
-              getChartData={() => this.getChartData('minute')}
-              timeRange={this.minuteChartConfig.timeRange}
-              type='minute'
-              onTimeRangeChange={val => this.handleTimeRange(val, 'minute')}
-            />
+        {this.chartIsInit && (
+          <div class='chart-panel'>
+            <div class='chart-container'>
+              <LinkStatusChart
+                ref='minuteChartRef'
+                data={this.minuteChartConfig.data}
+                getChartData={() => this.getChartData('minute')}
+                timeRange={this.minuteChartConfig.timeRange}
+                type='minute'
+                onTimeRangeChange={val => this.handleTimeRange(val, 'minute')}
+              />
+            </div>
+            <div class='chart-container'>
+              <LinkStatusChart
+                ref='dayChartRef'
+                data={this.hourChartConfig.data}
+                getChartData={() => this.getChartData('hour')}
+                timeRange={this.hourChartConfig.timeRange}
+                type='hour'
+                onTimeRangeChange={val => this.handleTimeRange(val, 'hour')}
+              />
+            </div>
           </div>
-          <div class='chart-container'>
-            <LinkStatusChart
-              ref='dayChartRef'
-              data={this.hourChartConfig.data}
-              getChartData={() => this.getChartData('hour')}
-              timeRange={this.hourChartConfig.timeRange}
-              type='hour'
-              onTimeRangeChange={val => this.handleTimeRange(val, 'hour')}
-            />
-          </div>
-        </div>
+        )}
         <bk-divider class='divider' />
         <div class='table-container'>
           <div class='title'>

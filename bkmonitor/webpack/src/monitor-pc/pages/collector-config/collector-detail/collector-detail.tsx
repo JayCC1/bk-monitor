@@ -81,7 +81,6 @@ export default class CollectorDetail extends Mixins(authorityMixinCreate(collect
       topicKey: '',
     },
     [TabEnum.Configuration]: {
-      renderKey: random(8),
       loading: false,
       tableLoading: false,
     },
@@ -200,7 +199,6 @@ export default class CollectorDetail extends Mixins(authorityMixinCreate(collect
     frontendCollectConfigDetail({ id: this.collectId, with_target_info: false })
       .then(res => {
         this.detailData = res;
-        this.allData[TabEnum.Configuration].renderKey = random(8);
       })
       .finally(() => {
         this.allData[TabEnum.Configuration].loading = false;
@@ -331,12 +329,10 @@ export default class CollectorDetail extends Mixins(authorityMixinCreate(collect
           <bk-tab-panel
             label={this.$t('配置信息')}
             name={TabEnum.Configuration}
-            renderDirective='if'
           >
             {!!this.collectId && (
               <CollectorConfiguration
                 id={this.collectId as any}
-                key={this.allData[TabEnum.Configuration].renderKey}
                 collectConfigData={this.collectConfigData}
                 detailData={this.detailData}
                 loading={this.allData[TabEnum.Configuration].loading}
@@ -350,7 +346,6 @@ export default class CollectorDetail extends Mixins(authorityMixinCreate(collect
           <bk-tab-panel
             label={this.$t('采集状态')}
             name={TabEnum.TargetDetail}
-            renderDirective='if'
           >
             {this.alarmGroupList?.length > 0 && (
               <AlertTopic
@@ -375,7 +370,6 @@ export default class CollectorDetail extends Mixins(authorityMixinCreate(collect
           <bk-tab-panel
             label={this.$t('链路状态')}
             name={TabEnum.DataLink}
-            renderDirective='if'
           >
             <AlertTopic
               id={this.collectId as any}
@@ -394,7 +388,6 @@ export default class CollectorDetail extends Mixins(authorityMixinCreate(collect
           <bk-tab-panel
             label={this.$t('存储状态')}
             name={TabEnum.StorageState}
-            renderDirective='if'
           >
             <AlertTopic
               id={this.collectId as any}
@@ -414,7 +407,6 @@ export default class CollectorDetail extends Mixins(authorityMixinCreate(collect
           <bk-tab-panel
             label={this.$t('指标/维度')}
             name={TabEnum.FieldDetails}
-            renderDirective='if'
           >
             <FieldDetails
               detailData={this.detailData}
