@@ -82,7 +82,7 @@ export const hasExcludeNoticeWayOptions = ['recovered', 'closed', 'ack'];
 interface IAdvancedConfig {
   interval_notify_mode: string; // "standard" 间隔模式
   notify_interval: number; // 通知间隔
-  template: { signal: string; message_tmpl: string; title_tmpl: string }[];
+  template: { signal: string; message_tmpl: string; title_tmpl: string; chart_image_enabled?: boolean }[];
 }
 
 type AssignModeType = 'by_rule' | 'only_notice';
@@ -111,7 +111,6 @@ export interface INoticeValue {
       user_groups: number[];
       upgrade_interval: number;
     };
-    chart_image_enabled?: boolean;
   };
   config?: IAdvancedConfig; //  高级配置
   user_group_list?: { id?: number; name?: string; users?: { display_name: string }[] }[];
@@ -178,16 +177,15 @@ export default class NoticeConfigNew extends tsc<INoticeConfigNewProps, INoticeC
         upgrade_interval: 0,
       },
       assign_mode: [],
-      chart_image_enabled: true,
     },
     config: {
       // 高级配置
       interval_notify_mode: 'standard',
       notify_interval: 120,
       template: [
-        { signal: 'abnormal', message_tmpl: '', title_tmpl: '' },
-        { signal: 'recovered', message_tmpl: '', title_tmpl: '' },
-        { signal: 'closed', message_tmpl: '', title_tmpl: '' },
+        { signal: 'abnormal', message_tmpl: '', title_tmpl: '', chart_image_enabled: true },
+        { signal: 'recovered', message_tmpl: '', title_tmpl: '', chart_image_enabled: true },
+        { signal: 'closed', message_tmpl: '', title_tmpl: '', chart_image_enabled: true },
       ],
     },
   };
@@ -201,7 +199,8 @@ export default class NoticeConfigNew extends tsc<INoticeConfigNewProps, INoticeC
     signal: string;
     message_tmpl: string;
     title_tmpl: string;
-  } = { signal: 'abnormal', message_tmpl: '', title_tmpl: '' };
+    chart_image_enabled?: boolean;
+  } = { signal: 'abnormal', message_tmpl: '', title_tmpl: '', chart_image_enabled: true };
   templateActive = '';
 
   isShowTemplate = false;
@@ -335,7 +334,7 @@ export default class NoticeConfigNew extends tsc<INoticeConfigNewProps, INoticeC
    */
   templateDataInit() {
     this.templateActive = '';
-    this.templateData = { signal: 'abnormal', message_tmpl: '', title_tmpl: '' };
+    this.templateData = { signal: 'abnormal', message_tmpl: '', title_tmpl: '', chart_image_enabled: true };
   }
 
   handleUserGroup(v: number[]) {
@@ -971,7 +970,7 @@ export default class NoticeConfigNew extends tsc<INoticeConfigNewProps, INoticeC
                   <span>{this.$t('告警通知模板')}</span>
                   <span class='need-img-check'>
                     <bk-checkbox
-                      v-model={this.data.options.chart_image_enabled}
+                      v-model={this.templateData.chart_image_enabled}
                       v-bk-tooltips={{
                         content: this.$t('蓝鲸监控机器人发送图片全局设置已关闭'),
                         placements: ['top'],

@@ -284,16 +284,30 @@ export default class StrategyConfigSet extends tsc<IStrategyConfigSetProps, IStr
         count: 10,
         dimensions: [],
       },
-      chart_image_enabled: true, // 告警通知模板是否附带图片的选项
     },
     config: {
       // 高级配置
       interval_notify_mode: 'standard',
       notify_interval: 120,
       template: [
-        { signal: 'abnormal', message_tmpl: DEFAULT_MESSAGE_TMPL, title_tmpl: DEFAULT_TITLE_TMPL },
-        { signal: 'recovered', message_tmpl: DEFAULT_MESSAGE_TMPL, title_tmpl: DEFAULT_TITLE_TMPL },
-        { signal: 'closed', message_tmpl: DEFAULT_MESSAGE_TMPL, title_tmpl: DEFAULT_TITLE_TMPL },
+        {
+          signal: 'abnormal',
+          message_tmpl: DEFAULT_MESSAGE_TMPL,
+          title_tmpl: DEFAULT_TITLE_TMPL,
+          chart_image_enabled: true, // 告警通知模板是否附带图片的选项
+        },
+        {
+          signal: 'recovered',
+          message_tmpl: DEFAULT_MESSAGE_TMPL,
+          title_tmpl: DEFAULT_TITLE_TMPL,
+          chart_image_enabled: true, // 告警通知模板是否附带图片的选项
+        },
+        {
+          signal: 'closed',
+          message_tmpl: DEFAULT_MESSAGE_TMPL,
+          title_tmpl: DEFAULT_TITLE_TMPL,
+          chart_image_enabled: true, // 告警通知模板是否附带图片的选项
+        },
       ],
     },
   };
@@ -846,15 +860,29 @@ export default class StrategyConfigSet extends tsc<IStrategyConfigSetProps, IStr
           upgrade_interval: undefined,
         },
         assign_mode: ['by_rule', 'only_notice'],
-        chart_image_enabled: true,
       },
       config: {
         interval_notify_mode: 'standard',
         notify_interval: 120,
         template: [
-          { signal: 'abnormal', message_tmpl: DEFAULT_MESSAGE_TMPL, title_tmpl: DEFAULT_TITLE_TMPL },
-          { signal: 'recovered', message_tmpl: DEFAULT_MESSAGE_TMPL, title_tmpl: DEFAULT_TITLE_TMPL },
-          { signal: 'closed', message_tmpl: DEFAULT_MESSAGE_TMPL, title_tmpl: DEFAULT_TITLE_TMPL },
+          {
+            signal: 'abnormal',
+            message_tmpl: DEFAULT_MESSAGE_TMPL,
+            title_tmpl: DEFAULT_TITLE_TMPL,
+            chart_image_enabled: true,
+          },
+          {
+            signal: 'recovered',
+            message_tmpl: DEFAULT_MESSAGE_TMPL,
+            title_tmpl: DEFAULT_TITLE_TMPL,
+            chart_image_enabled: true,
+          },
+          {
+            signal: 'closed',
+            message_tmpl: DEFAULT_MESSAGE_TMPL,
+            title_tmpl: DEFAULT_TITLE_TMPL,
+            chart_image_enabled: true,
+          },
         ],
       },
     };
@@ -1333,6 +1361,14 @@ export default class StrategyConfigSet extends tsc<IStrategyConfigSetProps, IStr
     const isDimensionsAll = legalDimensionList.every(item =>
       (notice.options?.noise_reduce_config?.dimensions || []).includes(item.id)
     );
+
+    // 数据结构跳帧，chart_image_enable 属性层级变化，需要向前兼容
+    const noticeConfigTemplateData = notice.config.template.map(item => {
+      // @ts-ignore
+      if (Object.hasOwn(item, 'chart_image_enable')) {
+      }
+    });
+
     this.noticeData = {
       ...notice,
       config: {
@@ -1359,7 +1395,6 @@ export default class StrategyConfigSet extends tsc<IStrategyConfigSetProps, IStr
           upgrade_interval: notice.options?.upgrade_config?.upgrade_interval || undefined,
         },
         assign_mode: notice.options?.assign_mode || [],
-        chart_image_enabled: !!notice.options?.chart_image_enabled,
       },
       user_groups: notice.user_groups.filter(u => ['string', 'number'].includes(typeof u)),
     };

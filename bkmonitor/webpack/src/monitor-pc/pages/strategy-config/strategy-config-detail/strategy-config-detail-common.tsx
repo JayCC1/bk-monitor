@@ -298,7 +298,8 @@ export default class StrategyConfigDetailCommon extends tsc<object> {
     signal: string;
     message_tmpl: string;
     title_tmpl: string;
-  } = { signal: 'abnormal', message_tmpl: '', title_tmpl: '' };
+    chart_image_enabled?: boolean;
+  } = { signal: 'abnormal', message_tmpl: '', title_tmpl: '', chart_image_enabled: true };
   // 告警组想详情
   alarmGroupDetail: { id: number; show: boolean } = {
     id: 0,
@@ -830,7 +831,6 @@ export default class StrategyConfigDetailCommon extends tsc<object> {
           is_enabled: notice.options?.noise_reduce_config?.is_enabled || false,
           count: notice.options?.noise_reduce_config?.count || 10,
         },
-        chart_image_enabled: !!notice.options?.chart_image_enabled,
       },
     };
     this.templateActive = this.noticeData.config.template[0].signal;
@@ -1490,7 +1490,7 @@ export default class StrategyConfigDetailCommon extends tsc<object> {
                           <span>{this.$t('告警通知模板')}</span>
                           <span class='need-img-check'>
                             {this.$t('是否附带图片')}：
-                            {this.noticeData.options.chart_image_enabled ? this.$t('是') : this.$t('否')}
+                            {this.templateData.chart_image_enabled ? this.$t('是') : this.$t('否')}
                           </span>
                         </span>
                         <div class='wrap-right'>
