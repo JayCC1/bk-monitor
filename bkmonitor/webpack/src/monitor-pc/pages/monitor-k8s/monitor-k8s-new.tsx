@@ -283,7 +283,7 @@ export default class MonitorK8sNew extends tsc<object> {
     const [startTime, endTime] = handleTransformToTimestamp(this.timeRange);
     getK8sTableDataMock(Math.floor(Math.random() * 101))
       .then(res => {
-        const asyncColumns: K8sTableColumn[] = this.k8sTableRef?.tableColumns.filter(col =>
+        const asyncColumns: K8sTableColumn[] = (this.k8sTableRef?.tableColumnsConfig?.columns || []).filter(col =>
           // @ts-ignore
           Object.hasOwn(col, 'asyncable')
         );
