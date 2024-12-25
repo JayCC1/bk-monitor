@@ -36,6 +36,7 @@ import { copyText, deepClone, random } from 'monitor-common/utils/utils';
 import ExceptionGuide, { type IGuideInfo } from '../../components/exception-guide/exception-guide';
 import MonitorTab from '../../components/monitor-tab/monitor-tab';
 import { formatDate, formatDuration, formatTime } from '../../components/trace-view/utils/date';
+import { useSelectionPopover } from '../../hooks/selectionPopover';
 import ProfilingFlameGraph from '../../plugins/charts/profiling-graph/flame-graph/flame-graph';
 import FlexDashboardPanel from '../../plugins/components/flex-dashboard-panel';
 import { useIsEnabledProfilingInject } from '../../plugins/hooks';
@@ -109,6 +110,11 @@ export default defineComponent({
     /** 原始数据 */
     const originalData = ref<null | Record<string, any>>(null);
 
+    const selectionOperationRef = ref<HTMLElement>(null);
+    const { markText, selectionTriggerSelector } = useSelectionPopover(selectionOperationRef, {
+      extCls: 'span-details-selection-popover',
+    });
+
     /* 当前应用名称 */
     const appName = computed(() => store.traceData.appName);
 
@@ -117,6 +123,9 @@ export default defineComponent({
     const bizId = computed(() => useAppStore().bizId || 0);
 
     const spans = computed(() => store.spanGroupTree);
+    const selectionTriggerClassName = computed(() =>
+      selectionTriggerSelector && ['Event'].includes(activeTab.value) ? selectionTriggerSelector?.slice?.(1) : ''
+    );
 
     // const countOfInfo = ref<object | Record<TabName, number>>({});
     const enableProfiling = useIsEnabledProfilingInject();
@@ -768,12 +777,14 @@ export default defineComponent({
                 </div>
               </span>
               {item.type === 'error' ? (
-                <div class='right'>
+                <div class={['right', selectionTriggerClassName.value]}>
                   <span class='error-text'>{formatContent(item.content, item.isFormat)}</span>
                   <span class='icon-monitor icon-mind-fill' />
                 </div>
               ) : (
-                <div class='right'>{formatContent(item.content, item.isFormat)}</div>
+                <div class={['right', selectionTriggerClassName.value]}>
+                  {formatContent(item.content, item.isFormat)}
+                </div>
               )}
               {isJson(item.content) && (
                 <Button
@@ -1030,6 +1041,30 @@ export default defineComponent({
         name: 'Profiling',
       });
     }
+
+    const selectionOperationTipRender = () => {
+      return (
+        <div
+          // @ts-ignore
+          ref={el => (selectionOperationRef.value = el)}
+          class='span-details-selection-operation'
+        >
+          <div
+            class='operation-btn trace-btn'
+            onClick={() => handleToTraceQuery(markText.value)}
+          >
+            <i class='icon-monitor icon-mc-search' />
+            <span>{t('trace检索')}</span>
+          </div>
+          <div class='divider' />
+          <div class='operation-btn log-btn'>
+            <i class='icon-monitor icon-mc-search' />
+            <span>{t('日志检索')}</span>
+          </div>
+        </div>
+      );
+    };
+
     const detailsMain = () => {
       // profiling 查询起始时间根据 span 开始时间前后各推半小时
       const halfHour = 18 * 10 ** 8;
@@ -1331,6 +1366,7 @@ export default defineComponent({
                     }
                     {showEmptyGuide() && <ExceptionGuide guideInfo={guideInfoData[activeTab.value]} />}
                   </div>,
+                  selectionTriggerClassName.value ? selectionOperationTipRender() : null,
                 ]
               )}
             </div>
