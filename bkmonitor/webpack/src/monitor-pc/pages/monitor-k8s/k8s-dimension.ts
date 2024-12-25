@@ -301,9 +301,13 @@ export abstract class K8sGroupDimension {
   private defaultGroupFilter: Set<K8sTableColumnKeysEnum>;
   /** Set 结构的 groupFilters 参数（主要用于校验判断是否存在某个值） */
   private groupFiltersSet: Set<K8sTableColumnKeysEnum>;
-  /** 实现类填充存在的 dimensions  */
+  /** 默认排序字段 */
+  abstract defaultSortProp: K8sTableColumnKeysEnum;
+  /** 当前场景实现类填充存在的维度  */
   abstract dimensions: K8sTableColumnKeysEnum[];
-  abstract dimensionsMap: Partial<Record<K8sTableColumnKeysEnum, K8sTableColumnKeysEnum[]>>;
+  /** 当前场景实现类填充groupBy选择器可选择的维度  */
+  abstract groupByDimensions: K8sTableColumnKeysEnum[];
+  abstract groupByDimensionsMap: Partial<Record<K8sTableColumnKeysEnum, K8sTableColumnKeysEnum[]>>;
   /** 已选 group by 维度 */
   // eslint-disable-next-line @typescript-eslint/member-ordering
   public groupFilters: K8sTableColumnResourceKey[] = [];
@@ -319,7 +323,7 @@ export abstract class K8sGroupDimension {
    */
   addGroupFilter(groupId: K8sTableColumnResourceKey, config?: { single: boolean }) {
     if (config?.single) {
-      const groupFilters = this.dimensions.reduce((prev, curr) => {
+      const groupFilters = this.groupByDimensions.reduce((prev, curr) => {
         if (this.groupFiltersSet.has(curr) || curr === groupId) {
           prev.push(curr);
         }
@@ -328,7 +332,7 @@ export abstract class K8sGroupDimension {
       this.setGroupFilters(groupFilters);
       return;
     }
-    this.setGroupFilters(this.dimensionsMap[groupId] as K8sTableColumnResourceKey[]);
+    this.setGroupFilters(this.groupByDimensionsMap[groupId] as K8sTableColumnResourceKey[]);
   }
 
   /**
@@ -402,13 +406,21 @@ export abstract class K8sGroupDimension {
  * @description 性能 类型 GroupFilter 实现类
  * */
 export class K8sPerformanceGroupDimension extends K8sGroupDimension {
+  readonly defaultSortProp = K8sTableColumnKeysEnum.CPU_USAGE;
   readonly dimensions = [
+    K8sTableColumnKeysEnum.CLUSTER,
     K8sTableColumnKeysEnum.NAMESPACE,
     K8sTableColumnKeysEnum.WORKLOAD,
     K8sTableColumnKeysEnum.POD,
     K8sTableColumnKeysEnum.CONTAINER,
   ];
-  readonly dimensionsMap = {
+  readonly groupByDimensions = [
+    K8sTableColumnKeysEnum.NAMESPACE,
+    K8sTableColumnKeysEnum.WORKLOAD,
+    K8sTableColumnKeysEnum.POD,
+    K8sTableColumnKeysEnum.CONTAINER,
+  ];
+  readonly groupByDimensionsMap = {
     [K8sTableColumnKeysEnum.NAMESPACE]: [K8sTableColumnKeysEnum.NAMESPACE],
     [K8sTableColumnKeysEnum.WORKLOAD]: [K8sTableColumnKeysEnum.NAMESPACE, K8sTableColumnKeysEnum.WORKLOAD],
     [K8sTableColumnKeysEnum.POD]: [
