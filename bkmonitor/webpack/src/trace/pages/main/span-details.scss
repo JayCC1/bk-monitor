@@ -33,6 +33,35 @@
   }
 }
 
+%selection-operation {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background: #fff;
+
+  .operation-btn {
+    display: flex;
+    align-items: center;
+    width: 70px;
+    font-size: 12px;
+    line-height: 20px;
+    color: #3a84ff;
+    cursor: pointer;
+  }
+
+  .icon-monitor {
+    padding-right: 2px;
+    font-size: 14px;
+  }
+
+  .divider {
+    width: 1px;
+    height: 18px;
+    margin: 0 8px;
+    background: #eaebf0;
+  }
+}
+
 .span-details-sideslider {
   
   position: fixed !important;
@@ -893,5 +922,17 @@
 
   .graph-tools {
     left: 60px !important;
+  }
+
+  .span-details-selection-operation {
+    @extend %selection-operation;
+  }
+}
+
+.span-details-selection-popover {
+  .span-details-selection-operation {
+    position: relative;
+    z-index: -1;
+    @extend %selection-operation;
   }
 }

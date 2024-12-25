@@ -415,6 +415,8 @@ export default {
   数据源配置: 'Data Source Configuration',
   进程配置: 'Process Configuration',
   Span检索: 'Span search',
+  trace检索: 'Trace search',
+  日志检索: 'Log search',
   观测: 'Observe',
   使用文档: 'Documents',
   'Profile 接入指引': 'Profile Access Guide',
