@@ -58,6 +58,8 @@ function useSelection(selector: SelectionProps | string, config?: SelectionProps
   /** 可以触发监听 selectionchange 事件的元素类名（包含其子级） */
   let selectionTriggerSelector: string;
   let selectionConfig: SelectionProps = config;
+  // traceRootDocument 用于处理 shadowRoot 的情况
+  let traceRootDocument: Document;
   if (typeof selector === 'string') {
     selectionTriggerSelector = selector;
   } else {
@@ -68,10 +70,14 @@ function useSelection(selector: SelectionProps | string, config?: SelectionProps
 
   /** selection 选区改变后触发回调事件 */
   const handleSelectionChange = debounce(e => {
-    e.preventDefault();
-    e.stopPropagation();
-    const selection = window.getSelection();
-    if (selection?.isCollapsed) {
+    // 微前端环境时，会导致 document 获取的实际为父应用环境中的 document 对象，
+    // 而 bk-weweb 会重新创建 document 对象，导致此处获取到的 document 不是当前页面的 document 对象
+    if (!traceRootDocument) {
+      traceRootDocument = window.__POWERED_BY_BK_WEWEB__ ? e.srcElement.shadowRoot : window.document;
+    }
+    const selection = traceRootDocument.getSelection();
+    // 在微前端环境下，Selection.isCollapsed 会一直为 true 时，改用 offset 进行判断是否选中文本
+    if (selection?.focusOffset === selection.anchorOffset) {
       return markLose(selection, e);
     }
     const range = selection.getRangeAt(0);
@@ -87,10 +93,12 @@ function useSelection(selector: SelectionProps | string, config?: SelectionProps
   }, 200);
 
   onMounted(() => {
+    // 由于在微前端环境下，selectionChange 事件并不会触发，所以改用 mouseup 监听
     document.addEventListener('mouseup', handleSelectionChange);
   });
 
   onBeforeUnmount(() => {
+    // 由于在微前端环境下，selectionChange 事件并不会触发，所以改用 mouseup 监听
     document.removeEventListener('mouseup', handleSelectionChange);
   });
 
@@ -162,7 +170,7 @@ const useSelectionPopover = (content: Ref<HTMLElement>, popoverProp: Partial<$Po
         disableOutsideClick: false,
         disableTransform: false,
         modifiers: [],
-        popoverDelay: 20,
+        popoverDelay: 0,
         componentEventDelay: 0,
         forceClickoutside: false,
         immediate: false,

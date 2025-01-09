@@ -655,6 +655,36 @@ export default defineComponent({
       const url = location.href.replace(location.hash, hash);
       window.open(url, '_blank');
     }
+    /** 框选 popover 跳转trace检索 */
+    function handleToTraceQueryBySelection(markKeyword: string) {
+      if (!markKeyword) {
+        return;
+      }
+      const keyword = markKeyword.trim();
+      let keywordForQueryKey: 'query' | 'trace_id' = 'trace_id';
+      // 查询方式 - accurate: 精准查询  scope: 范围查询
+      let searchType: 'accurate' | 'scope' = 'accurate';
+      // 精准查询模式下 查询Id 的类型
+      let searchId: 'spanID' | 'traceID' = 'traceID';
+      // 校验关键字是否符合 SpanId / TraceId 规则
+      if (/^([0-9a-f]{16})$/i.test(keyword)) {
+        searchId = 'spanID';
+      } else if (!/^([0-9a-f]{32})$/i.test(keyword)) {
+        searchType = 'scope';
+        keywordForQueryKey = 'query';
+      }
+      const hash = `#/trace/home?app_name=${appName.value}&search_type=${searchType}&search_id=${searchId}&${keywordForQueryKey}=${keyword}`;
+      const url = location.href.replace(location.hash, hash);
+      window.open(url, '_blank');
+    }
+
+    /** 跳转日志检索语句查询 */
+    // TODO 跳转 日志检索 页面传参待补充
+    function handleToLogQueryBySelection(markKeyword: string) {
+      const hash = `#/log-retrieval?indexId=${appName.value}&search_mode=sql&keyword=${markKeyword}`;
+      const url = location.href.replace(location.hash, hash);
+      window.open(url, '_blank');
+    }
 
     /** 切换原始数据 */
     function handleOriginalDataChange(val: boolean) {
@@ -1123,13 +1153,16 @@ export default defineComponent({
         >
           <div
             class='operation-btn trace-btn'
-            onClick={() => handleToTraceQuery(markText.value)}
+            onClick={() => handleToTraceQueryBySelection(markText.value)}
           >
             <i class='icon-monitor icon-mc-search' />
             <span>{t('trace检索')}</span>
           </div>
           <div class='divider' />
-          <div class='operation-btn log-btn'>
+          <div
+            class='operation-btn log-btn'
+            onClick={() => handleToLogQueryBySelection(markText.value)}
+          >
             <i class='icon-monitor icon-mc-search' />
             <span>{t('日志检索')}</span>
           </div>

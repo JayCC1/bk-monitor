@@ -925,6 +925,7 @@
   }
 
   .span-details-selection-operation {
+    display: none;
     @extend %selection-operation;
   }
 }
@@ -932,7 +933,6 @@
 .span-details-selection-popover {
   .span-details-selection-operation {
     position: relative;
-    z-index: -1;
     @extend %selection-operation;
   }
 }
