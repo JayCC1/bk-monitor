@@ -144,7 +144,7 @@ const useSelectionPopover = (content: Ref<HTMLElement>, popoverProp: Partial<$Po
       selectionMarkerEl.style.top = `${rect.top}px`;
       selectionMarkerEl.style.width = `${rect.width}px`;
       selectionMarkerEl.style.height = `${rect.height}px`;
-      // @ts-ignore
+
       popoverInstance.value = $bkPopover({
         target: selectionMarkerEl,
         content: content.value,
