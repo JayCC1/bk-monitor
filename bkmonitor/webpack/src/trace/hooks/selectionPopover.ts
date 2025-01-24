@@ -25,6 +25,7 @@
  */
 
 import { onBeforeUnmount, onMounted, type Ref, ref } from 'vue';
+import { getCurrentInstance } from 'vue';
 
 import { $bkPopover } from 'bkui-vue/lib/popover';
 import { random } from 'bkui-vue/lib/shared';
@@ -55,11 +56,12 @@ type PopoverInstance = {
 function useSelection(config: SelectionProps);
 function useSelection(selector: string, config: SelectionProps);
 function useSelection(selector: SelectionProps | string, config?: SelectionProps) {
+  const vmInstance = getCurrentInstance();
   /** 可以触发监听 selectionchange 事件的元素类名（包含其子级） */
   let selectionTriggerSelector: string;
   let selectionConfig: SelectionProps = config;
   // traceRootDocument 用于处理 shadowRoot 的情况
-  let traceRootDocument: Document;
+  let traceRootDocument: Document | ShadowRoot;
   if (typeof selector === 'string') {
     selectionTriggerSelector = selector;
   } else {
@@ -73,8 +75,10 @@ function useSelection(selector: SelectionProps | string, config?: SelectionProps
     // 微前端环境时，会导致 document 获取的实际为父应用环境中的 document 对象，
     // 而 bk-weweb 会重新创建 document 对象，导致此处获取到的 document 不是当前页面的 document 对象
     if (!traceRootDocument) {
-      traceRootDocument = window.__POWERED_BY_BK_WEWEB__ ? e.srcElement.shadowRoot : window.document;
+      const node = vmInstance?.vnode?.el as Node;
+      traceRootDocument = findDocumentOrShadowRoot(node);
     }
+    // @ts-ignore
     const selection = traceRootDocument.getSelection();
     // 在微前端环境下，Selection.isCollapsed 会一直为 true 时，改用 offset 进行判断是否选中文本
     if (selection?.focusOffset === selection.anchorOffset) {
@@ -257,5 +261,21 @@ const useSelectionPopover = (content: Ref<HTMLElement>, popoverProp: Partial<$Po
     selectionTriggerSelector,
   };
 };
+
+/**
+ * @description 获取当前选区所在的 document 对象，用于微前端环境获取正确的 document 对象
+ * @param node - 传入依据节点
+ */
+function findDocumentOrShadowRoot(node?: Node): Document | ShadowRoot | undefined {
+  if (!node) {
+    return window.document;
+  }
+  const root = node.getRootNode();
+  // @ts-ignore
+  if ((root instanceof Document || root instanceof ShadowRoot) && root.getSelection != null) {
+    return root;
+  }
+  return node.ownerDocument;
+}
 
 export { useSelection, useSelectionPopover };
