@@ -58,6 +58,10 @@ export default class EventRetrievalNew extends tsc<{ source: APIType }> {
   @ProvideReactive('refleshInterval') refreshInterval = -1;
   // 是否立即刷新
   @ProvideReactive('refleshImmediate') refreshImmediate = '';
+  /** 图表框选范围事件所需参数 -- 开启框选功能 后需应用到所有图表(包含三个数据 框选方法 是否展示复位  复位方法) */
+  @Provide('enableSelectionRestoreAll') enableSelectionRestoreAll = true;
+  /** 图表框选范围事件所需参数 -- 是否展示复位按钮 */
+  @ProvideReactive('showRestore') showRestore = false;
 
   @ProvideReactive('formatTimeRange')
   get formatTimeRange() {
@@ -83,6 +87,8 @@ export default class EventRetrievalNew extends tsc<{ source: APIType }> {
 
   fieldList = [];
 
+  cacheTimeRange = [];
+
   /** 公共参数 */
   @ProvideReactive('commonParams')
   get commonParams() {
@@ -97,10 +103,31 @@ export default class EventRetrievalNew extends tsc<{ source: APIType }> {
     };
   }
 
-  @Provide('handleTimeRangeChange')
   handleTimeRangeChange(timeRange: TimeRangeType) {
     this.timeRange = timeRange;
     this.getViewConfig();
+  }
+
+  /**
+   * @description 更改数据时间间隔（其中 Provide 主要提供图表组件框选事件需要）
+   */
+  @Provide('handleChartDataZoom')
+  handleTimeRangeChangeForChart(timeRange: TimeRangeType) {
+    if (JSON.stringify(this.timeRange) === JSON.stringify(timeRange)) {
+      return;
+    }
+    this.showRestore = true;
+    this.cacheTimeRange = JSON.parse(JSON.stringify(this.timeRange));
+    this.handleTimeRangeChange(timeRange);
+  }
+
+  /**
+   * @description 恢复数据时间间隔
+   */
+  @Provide('handleRestoreEvent')
+  handleRestoreEventForChart() {
+    this.showRestore = false;
+    this.handleTimeRangeChange(JSON.parse(JSON.stringify(this.cacheTimeRange)));
   }
 
   handleDataIdChange(dataId: string) {
