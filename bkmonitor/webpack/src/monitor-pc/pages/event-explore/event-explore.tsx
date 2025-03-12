@@ -361,6 +361,7 @@ export default class EventExplore extends tsc<
                   queryConfig={this.queryConfig}
                   refreshImmediate={this.refreshImmediate}
                   source={this.source}
+                  timeRange={this.timeRange}
                   onConditionChange={this.handleConditionChange}
                 />
               </div>
