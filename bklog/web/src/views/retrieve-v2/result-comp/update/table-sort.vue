@@ -50,8 +50,8 @@
           >
             <!-- bklog-v3-popover-tag 不要乱加，这里用来判定是否为select 弹出，只做标识，不做样式作用 -->
             <bk-option
-              class="bklog-v3-popover-tag"
               v-for="option in orderList"
+              class="bklog-v3-popover-tag"
               :id="option.id"
               :key="option.id"
               :name="option.name"
@@ -99,9 +99,14 @@
   const store = useStore();
   const shadowSort = ref([]);
 
+  /** 已选择的排序字段，用于不允许选择重复项功能 */
+  const selectedFieldSet = computed(() => {
+    return new Set(shadowSort.value.map(e => e[0]));
+  });
+
   const selectList = computed(() => {
     const data = store.state.indexFieldInfo.fields;
-    const filterFn = field => field.field_type !== '__virtual__';
+    const filterFn = field => field.field_type !== '__virtual__' && !selectedFieldSet.value.has(field);
     return data.filter(filterFn);
   });
   const deleteTableItem = (val: number) => {
