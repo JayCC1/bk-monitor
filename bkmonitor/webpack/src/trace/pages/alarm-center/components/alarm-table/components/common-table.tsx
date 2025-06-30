@@ -25,6 +25,7 @@
  */
 import { defineComponent, computed, type PropType, useTemplateRef, onMounted } from 'vue';
 
+import ExploreTableEmpty from '@/pages/trace-explore/components/trace-explore-table/components/explore-table-empty';
 import { type BkUiSettings, PrimaryTable, type TableSort } from '@blueking/tdesign-ui';
 import { Pagination } from 'bkui-vue';
 
@@ -229,6 +230,9 @@ export default defineComponent({
         <PrimaryTable
           ref='tableRef'
           class={`common-table ${this.tableSkeletonConfig?.tableClass}`}
+          v-slots={{
+            empty: () => <ExploreTableEmpty />,
+          }}
           bkUiSettings={{
             fields: this.allTableFields,
             checked: this.displayColFields,
@@ -241,6 +245,7 @@ export default defineComponent({
           headerAffixedTop={this.headerAffixedTop}
           horizontalScrollAffixedBottom={this.horizontalScrollAffixedBottom}
           hover={true}
+          lastFullRow={() => <div>123</div>}
           resizable={true}
           rowKey={this.rowKey}
           showSortColumnBgColor={true}
