@@ -42,6 +42,7 @@ import {
 import FilterVarSelectSimple from '../filter-var-select/filter-var-select-simple';
 import K8sDetailSlider from '../k8s-detail-slider/k8s-detail-slider';
 import TimeCompareSelect from '../panel-tools/time-compare-select';
+import { K8sPromqlGeneratorFactory } from './k8s-promql-generator/promql-generator-factory';
 
 import type { K8sTableColumnResourceKey } from '../k8s-table-new/k8s-table-new';
 import type { IViewOptions } from 'monitor-ui/chart-plugins/typings';
@@ -82,6 +83,9 @@ export default class K8SCharts extends tsc<{
   resourceList: Set<Partial<Record<K8sTableColumnKeysEnum, string>>> = new Set();
   sideDetailShow = false;
   sideDetail: Partial<Record<K8sTableColumnKeysEnum, string>> = {};
+  /** 场景promql生成器 工厂 */
+  scenePromqlGeneratorFactory = new K8sPromqlGeneratorFactory();
+
   get canGroupByCluster() {
     return this.scene === SceneEnum.Capacity;
   }
@@ -263,14 +267,7 @@ export default class K8SCharts extends tsc<{
   }
   createPanelPromql(metric: string) {
     if (!this.resourceMap.get(this.groupByField)?.length) return '';
-    switch (this.scene) {
-      case SceneEnum.Network:
-        return this.createNetworkPanelPromql(metric);
-      case SceneEnum.Capacity:
-        return this.createCapacityPanelPromql(metric);
-      default:
-        return this.createPerformancePanelPromql(metric);
-    }
+    return this.scenePromqlGeneratorFactory.getGeneratorInstance(this.scene).generate(metric, {});
   }
   createCommonPromqlMethod() {
     if (this.groupByField === K8sTableColumnKeysEnum.CLUSTER) return '$method by(bcs_cluster_id)';
