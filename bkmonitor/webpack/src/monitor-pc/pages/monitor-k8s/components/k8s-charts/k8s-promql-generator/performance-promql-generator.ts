@@ -25,7 +25,8 @@
  */
 
 import { K8sTableColumnKeysEnum, SceneEnum } from '../../../typings/k8s-new';
-import { type K8sBasePromqlGeneratorContext, K8sBasePromqlGenerator } from './base-promql-generator';
+import { type K8sBasePromqlGeneratorContext } from '../typing';
+import { K8sBasePromqlGenerator } from './base-promql-generator';
 
 /**
  * @class K8sPerformancePromqlGenerator K8s 性能场景 Promql生成器

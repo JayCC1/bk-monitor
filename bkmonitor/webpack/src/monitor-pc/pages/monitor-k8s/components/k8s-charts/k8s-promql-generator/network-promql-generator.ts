@@ -25,7 +25,9 @@
  */
 
 import { K8sTableColumnKeysEnum, SceneEnum } from '../../../typings/k8s-new';
-import { type K8sBasePromqlGeneratorContext, K8sBasePromqlGenerator } from './base-promql-generator';
+import { K8sBasePromqlGenerator } from './base-promql-generator';
+
+import type { K8sBasePromqlGeneratorContext } from '../typing';
 
 /**
  * @class K8sNetworkPromqlGenerator K8s 网络 Promql 生成器
@@ -37,23 +39,23 @@ export class K8sNetworkPromqlGenerator extends K8sBasePromqlGenerator {
   /**
    * @method determineFilterLevelField 确定过滤级别字段
    * @description 确定过滤级别字段
-   * @param context K8sBasePromqlGeneratorContext
-   * @returns K8sTableColumnKeysEnum
+   * @param {K8sBasePromqlGeneratorContext} context 生成器上下文
+   * @returns {K8sTableColumnKeysEnum} 过滤级别字段
    */
   determineFilterLevelField(context: K8sBasePromqlGeneratorContext): K8sTableColumnKeysEnum {
     if (
       context.groupByField === K8sTableColumnKeysEnum.INGRESS ||
-      context.filterCommonParams?.filter_dict?.[K8sTableColumnKeysEnum.INGRESS]?.length
+      context.filter_dict?.[K8sTableColumnKeysEnum.INGRESS]?.length
     )
       return K8sTableColumnKeysEnum.INGRESS;
     if (
       context.groupByField === K8sTableColumnKeysEnum.SERVICE ||
-      context.filterCommonParams?.filter_dict?.[K8sTableColumnKeysEnum.SERVICE]?.length
+      context.filter_dict?.[K8sTableColumnKeysEnum.SERVICE]?.length
     )
       return K8sTableColumnKeysEnum.SERVICE;
     if (
       context.groupByField === K8sTableColumnKeysEnum.NAMESPACE ||
-      context.filterCommonParams?.filter_dict?.[K8sTableColumnKeysEnum.NAMESPACE]?.length
+      context.filter_dict?.[K8sTableColumnKeysEnum.NAMESPACE]?.length
     )
       return K8sTableColumnKeysEnum.NAMESPACE;
     return K8sTableColumnKeysEnum.POD;

@@ -26,19 +26,7 @@
 
 import { type SceneEnum, K8sTableColumnKeysEnum } from '../../../typings/k8s-new';
 
-import type { K8sTableColumnResourceKey } from '../../k8s-table-new/k8s-table-new';
-
-export interface K8sBasePromqlGeneratorContext {
-  /** groupByField 分组字段 */
-  groupByField: K8sTableColumnResourceKey;
-  /** resourceMap 资源映射 */
-  resourceMap: Map<K8sTableColumnResourceKey, string>;
-  /** filterCommonParams 过滤公共参数 */
-  filterCommonParams: {
-    bcs_cluster_id: string;
-    filter_dict: Record<string, string[]>;
-  };
-}
+import type { K8sBasePromqlGeneratorContext } from '../typing';
 
 /**
  * @abstract K8sBasePromqlGenerator K8s Promql 生成器场景抽象基类
@@ -61,7 +49,7 @@ export abstract class K8sBasePromqlGenerator {
     needExcludePod = true,
     usePod = false
   ) {
-    let content = `bcs_cluster_id="${context.filterCommonParams.bcs_cluster_id}"`;
+    let content = `bcs_cluster_id="${context.bcs_cluster_id}"`;
     const namespace = context.resourceMap.get(K8sTableColumnKeysEnum.NAMESPACE) || '';
     if (onlyNameSpace) {
       content += `,namespace=~"^(${namespace})$"`;
@@ -186,14 +174,11 @@ export abstract class K8sBasePromqlGenerator {
       console.warn('K8sBasePromqlGenerator: resourceMap.get(groupByField) is required but empty');
       return false;
     }
-    if (!context.filterCommonParams) {
-      console.warn('K8sBasePromqlGenerator: filterCommonParams is required but empty');
+    if (!context.bcs_cluster_id) {
+      console.warn('K8sBasePromqlGenerator: bcs_cluster_id is required but empty');
       return false;
     }
-    if (!context.filterCommonParams.bcs_cluster_id) {
-      console.warn('K8sBasePromqlGenerator: filterCommonParams.bcs_cluster_id is required but empty');
-      return false;
-    }
+
     return true;
   }
 

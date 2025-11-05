@@ -25,7 +25,9 @@
  */
 
 import { K8sTableColumnKeysEnum, SceneEnum } from '../../../typings/k8s-new';
-import { type K8sBasePromqlGeneratorContext, K8sBasePromqlGenerator } from './base-promql-generator';
+import { K8sBasePromqlGenerator } from './base-promql-generator';
+
+import type { K8sBasePromqlGeneratorContext } from '../typing';
 
 /**
  * @class K8sCapacityPromqlGenerator K8s 容量场景 Promql生成器
@@ -35,7 +37,7 @@ export class K8sCapacityPromqlGenerator extends K8sBasePromqlGenerator {
   readonly promqlGenerateScene = SceneEnum.Capacity;
 
   scenePrivatePromqlGenerateMain(metric: string, context: K8sBasePromqlGeneratorContext): string {
-    const clusterId = context.filterCommonParams.bcs_cluster_id;
+    const clusterId = context.bcs_cluster_id;
     switch (metric) {
       case 'node_cpu_seconds_total': // 节点CPU使用量
         return `${K8sBasePromqlGenerator.createCommonPromqlMethod(context)}(last_over_time(rate(node_cpu_seconds_total{${K8sBasePromqlGenerator.createCommonPromqlContent(context)},mode!="idle"}[$interval])[$interval:] $time_shift))`;
