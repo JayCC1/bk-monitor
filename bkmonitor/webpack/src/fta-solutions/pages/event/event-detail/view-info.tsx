@@ -344,7 +344,7 @@ export default class ViewInfo extends tsc<IViewInfoProp> {
       this.hasTraceSeries = !!traceSeries.length && this.chart.chartType === 'line';
       // const algorithmValue = algorithmList?.find(item => item?.level === level)?.algorithmConfig?.sensitivityValue
       // 异常检测图表转换
-
+      console.log('================ series ================', series);
       if (chartQueryConfig?.extend_fields?.intelligent_detect?.result_table_id && series.length) {
         const chartSeries = series.find(
           item => item?.metric?.metric_field === 'value' && item?.time_offset === 'current'
@@ -425,7 +425,7 @@ export default class ViewInfo extends tsc<IViewInfoProp> {
             }
             return item;
           });
-
+        console.log('================ allData ================', allData);
         return allData;
       }
       const result = series.map(({ target, datapoints, ...setData }) => ({
@@ -489,6 +489,7 @@ export default class ViewInfo extends tsc<IViewInfoProp> {
               temp.push(d);
             }
           });
+          console.log('================ temp ================', temp);
           return temp;
         };
         traceSeries.forEach(item => {
@@ -507,6 +508,7 @@ export default class ViewInfo extends tsc<IViewInfoProp> {
           });
         });
       }
+      console.log('================ result ================', result);
       return result;
     }
     return [];

@@ -742,6 +742,7 @@ export default class MonitorEcharts extends Vue {
       const data = await this.getSeriesData(startTime, endTime, isRange).catch(() => {
         return [];
       });
+      debugger;
       this.seriesData = [...data].map(item => ({
         ...item,
         key: item.target.replace(/\./g, '_'),

@@ -25,7 +25,6 @@
  */
 import { type PropType, computed, defineComponent, provide, shallowRef } from 'vue';
 
-import dayjs from 'dayjs';
 import { transformDataKey, typeTools } from 'monitor-common/utils';
 import { type IDetectionConfig, MetricType } from 'monitor-pc/pages/strategy-config/strategy-config-set-new/typings';
 import { PanelModel } from 'monitor-ui/chart-plugins/typings';
@@ -36,6 +35,7 @@ import IntelligenceScene from './echarts/intelligence-scene';
 import MonitorCharts from './echarts/monitor-charts';
 import OutlierDetectionChart from './echarts/outlier-detection-chart';
 import TimeSeriesForecastingChart from './echarts/time-series-forecasting-chart';
+import { useSeriesFormatter } from './hooks/use-series-formatter';
 
 import type { AlarmDetail } from '@/pages/alarm-center/typings';
 import type { LegendOptions } from '@/plugins/typings';
@@ -49,16 +49,6 @@ const ALGORITHM_TYPES = {
   TIME_SERIES_FORECASTING: 'TimeSeriesForecasting',
 } as const;
 
-/** 图表颜色常量 */
-const CHART_COLORS = {
-  ANOMALY: '#E71818',
-  FATAL_ALARM: '#e64545',
-  TRIGGER_PHASE: '#DCDEE5',
-  FATAL_PERIOD: '#F8B4B4',
-  TRIGGER_PHASE_BG: 'rgba(155, 168, 194, 0.12)',
-  FATAL_PERIOD_BG: 'rgba(234, 54, 54, 0.12)',
-} as const;
-
 export default defineComponent({
   name: 'ChartWrapper',
   props: {
@@ -69,6 +59,8 @@ export default defineComponent({
   },
   setup(props) {
     const { t } = useI18n();
+    const { formatAlarmChartData } = useSeriesFormatter();
+
     /** 图表划选后的时间范围 */
     const dataZoomTimeRange = shallowRef(null);
     provide('timeRange', dataZoomTimeRange);
@@ -98,7 +90,7 @@ export default defineComponent({
     const hasAIOpsDetection = computed(
       () =>
         hasAlgorithmType(ALGORITHM_TYPES.INTELLIGENT_DETECT) &&
-        detectionConfig.value?.query_configs?.[0]?.intelligent_detect?.result_table_id
+        detectionConfig.value?.query_configs?.[0]?.result_table_id
     );
 
     /** 是否含有离群检测算法 */
@@ -178,38 +170,6 @@ export default defineComponent({
     };
 
     /**
-     * @description 格式化系列别名
-     * @param {string} name 原始系列名称(可能存在占位变量，如：$time_offset)
-     * @param {Record<string, any>} compareData 替换数据源
-     * @returns 格式化后的系列名称
-     */
-    const formatSeriesAlias = (name: string, compareData: Record<string, any> = {}) => {
-      if (!name) return name;
-      let alias = name;
-
-      for (const [key, val] of Object.entries(compareData)) {
-        if (!val) continue;
-
-        if (key === 'time_offset' && alias.includes('$time_offset')) {
-          const timeMatch = val.match(/(-?\d+)(\w+)/);
-          const replacement =
-            timeMatch?.length > 2
-              ? dayjs.tz().add(-timeMatch[1], timeMatch[2]).fromNow().replace(/\s*/g, '')
-              : val.replace('current', t('当前'));
-          alias = alias.replaceAll('$time_offset', replacement);
-        } else if (typeof val === 'object') {
-          for (const valKey of Object.keys(val).sort((a, b) => b.length - a.length)) {
-            alias = alias.replaceAll(`$${key}_${valKey}`, val[valKey]);
-          }
-        } else {
-          alias = alias.replaceAll(`$${key}`, val);
-        }
-      }
-
-      return alias.replace(/(\|\s*)+\|/g, '|').replace(/\|$/g, '');
-    };
-
-    /**
      * @description 格式化图表数据，添加异常点、告警标记等辅助系列
      * @param data - 原始图表数据
      * @returns 包含异常标记、告警阶段等辅助系列的完整图表数据
@@ -217,85 +177,7 @@ export default defineComponent({
     const formatterData = data => {
       const { graph_panel } = props.detail;
       const [{ alias }] = graph_panel.targets;
-
-      const series = data.series.map(s => ({
-        ...s,
-        alias: formatSeriesAlias(alias, { ...s, tag: s.dimensions }) || s.alias,
-      }));
-
-      const datapoints = series[0]?.datapoints;
-      const max = datapoints?.reduce((prev, cur) => Math.max(prev, cur[0]), 0);
-      const emptyDatapoints = datapoints?.map(item => [null, item[1]]) || [];
-      const beginTimeStr = String(props.detail.begin_time * 1000);
-      const firstAnomalyTimeStr = String(props.detail.first_anomaly_time * 1000);
-      const endTimeStr = String(
-        props.detail.end_time ? props.detail.end_time * 1000 : datapoints[datapoints.length - 1][1]
-      );
-
-      /** 创建标记区域配置 */
-      const createMarkArea = (startTime: string, endTime: string, color: string) => ({
-        silent: true,
-        itemStyle: { color },
-        data: [[{ xAxis: startTime }, { xAxis: endTime }]],
-      });
-
-      return {
-        ...data,
-        series: [
-          ...series,
-          {
-            type: 'scatter',
-            datapoints: datapoints.map(item => {
-              const isAnomaly = props.detail.anomaly_timestamps.includes(Number(String(item[1]).slice(0, -3)));
-              return [isAnomaly ? item[0] : null, item[1]];
-            }),
-            alias: t('异常'),
-            symbolSize: 5,
-            color: CHART_COLORS.ANOMALY,
-            itemStyle: { color: CHART_COLORS.ANOMALY },
-            tooltip: { show: false },
-          },
-          {
-            type: 'line',
-            alias: t('致命告警产生'),
-            tooltip: { show: false },
-            color: CHART_COLORS.FATAL_ALARM,
-            lineStyle: { opacity: 0 },
-            yAxisIndex: 1,
-            markPoint: {
-              symbol: 'circle',
-              symbolSize: 0,
-              label: {
-                show: true,
-                position: 'top',
-                formatter: '\ue606',
-                color: CHART_COLORS.FATAL_ALARM,
-                fontSize: 18,
-                fontFamily: 'icon-monitor',
-              },
-              data: [{ coord: [beginTimeStr, max === 0 ? 1 : max] }],
-            },
-            datapoints,
-          },
-          {
-            type: 'line',
-            alias: t('告警触发阶段'),
-            tooltip: { show: false },
-            datapoints: emptyDatapoints,
-            color: CHART_COLORS.TRIGGER_PHASE,
-            markArea: createMarkArea(firstAnomalyTimeStr, beginTimeStr, CHART_COLORS.TRIGGER_PHASE_BG),
-          },
-          {
-            type: 'line',
-            alias: t('致命告警时段'),
-            tooltip: { show: false },
-            datapoints: emptyDatapoints,
-            color: CHART_COLORS.FATAL_PERIOD,
-            markArea: createMarkArea(beginTimeStr, endTimeStr, CHART_COLORS.FATAL_PERIOD_BG),
-            z: 1,
-          },
-        ],
-      };
+      return formatAlarmChartData(data, props.detail, alias);
     };
 
     /**
@@ -318,26 +200,36 @@ export default defineComponent({
      * @returns 对应的图表组件 JSX
      */
     const getSeriesViewComponent = () => {
+      // 主机智能场景检测
       if (isHostAnomalyDetection.value) {
+        console.log('主机智能场景检测');
         return <IntelligenceScene detail={props.detail} />;
       }
       // 智能检测算法图表
-      if (hasAIOpsDetection.value)
+      if (hasAIOpsDetection.value) {
+        console.log('智能检测算法图表');
         return (
           <AiopsCharts
             detail={props.detail}
             detectionConfig={detectionConfig.value}
           />
         );
+      }
       // 时序预测图表
-      if (hasTimeSeriesForecasting.value)
+      if (hasTimeSeriesForecasting.value) {
+        console.log('时序预测图表');
         return (
           <TimeSeriesForecastingChart
             detail={props.detail}
             detectionConfig={detectionConfig.value}
           />
         );
-      if (hasOutlierDetection.value) return <OutlierDetectionChart detail={props.detail} />;
+      }
+      if (hasOutlierDetection.value) {
+        console.log('离群检测算法');
+        return <OutlierDetectionChart detail={props.detail} />;
+      }
+      console.log('dddddddddddddd');
       return (
         <div class='series-view-container'>
           <MonitorCharts

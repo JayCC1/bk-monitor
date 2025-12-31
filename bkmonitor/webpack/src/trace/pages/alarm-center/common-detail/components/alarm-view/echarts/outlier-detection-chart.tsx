@@ -29,6 +29,7 @@ import { shallowRef } from 'vue';
 
 import { createAutoTimeRange } from './aiops-charts';
 import MonitorCharts from './monitor-charts';
+import { useSeriesFormatter } from '../hooks/use-series-formatter';
 import { DEFAULT_TIME_RANGE } from '@/components/time-range/utils';
 import { PanelModel } from '@/plugins/typings';
 
@@ -45,6 +46,7 @@ export default defineComponent({
     },
   },
   setup(props) {
+    const { formatOutlierChartData } = useSeriesFormatter();
     const panel = shallowRef(null);
     const showRestore = shallowRef(false);
     const timeRange = shallowRef(DEFAULT_TIME_RANGE);
@@ -96,11 +98,22 @@ export default defineComponent({
       };
       panel.value = new PanelModel(panelData);
     };
+
+    /**
+     * @description: 格式化图表数据
+     * @param {any} data 图表接口返回的series数据
+     */
+    const formatterData = (data: any) => {
+      const { graph_panel } = props.detail;
+      const [{ alias }] = graph_panel.targets;
+      return formatOutlierChartData(data, alias);
+    };
     return {
       panel,
       showRestore,
       handleDataZoomChange,
       handleRestore,
+      formatterData,
     };
   },
   render() {
@@ -108,6 +121,7 @@ export default defineComponent({
       <div class='outlier-detection-chart'>
         {this.panel && (
           <MonitorCharts
+            formatterData={this.formatterData}
             panel={this.panel}
             showRestore={this.showRestore}
             onDataZoomChange={this.handleDataZoomChange}
