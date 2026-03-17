@@ -24,11 +24,20 @@
  * IN THE SOFTWARE.
  */
 
-import type { IssueActiveNodeTypeEnum, IssuePriorityEnum, IssuesBatchActionEnum, IssueStatusEnum } from '../constant';
+import type {
+  IssueActiveNodeTypeEnum,
+  IssueDetailTabEnum,
+  IssuePriorityEnum,
+  IssuesBatchActionEnum,
+  IssueStatusEnum,
+} from '../constant';
 import type { GetEnumTypeTool } from 'monitor-pc/pages/query-template/typings/constants';
 
 /** Issues 活跃节点类型 */
 export type IssueActiveNodeType = GetEnumTypeTool<typeof IssueActiveNodeTypeEnum>;
+
+/** Issues 详情 Tab 类型 */
+export type IssueDetailTabType = GetEnumTypeTool<typeof IssueDetailTabEnum>;
 
 /** Issues 优先级类型 */
 export type IssuePriorityType = GetEnumTypeTool<typeof IssuePriorityEnum>;
