@@ -27,6 +27,8 @@ import { type PropType, defineComponent, KeepAlive, shallowRef } from 'vue';
 
 import { Tab } from 'bkui-vue';
 import { type IWhereItem, EMode } from 'trace/components/retrieval-filter/typing';
+import { AlarmServiceFactory } from 'trace/pages/alarm-center/services/factory';
+import { AlarmType } from 'trace/pages/alarm-center/typings';
 
 import { IssueDetailTabEnum } from '../../constant';
 import DimensionStats from './dimension-stats/dimension-stats';
@@ -37,7 +39,7 @@ import IssuesDetailAlarmTable from './issues-detail-alarm-table/issues-detail-al
 import IssuesHistory from './issues-history/issues-history';
 import IssuesRetrievalFilter from './issues-retrieval-filter/issues-retrieval-filter';
 import IssuesTrendChart from './issues-trend-chart/issues-trend-chart';
-import { type TimeRangeType, DEFAULT_TIME_RANGE } from '@/components/time-range/utils';
+import { type TimeRangeType, DEFAULT_TIME_RANGE, handleTransformToTimestamp } from '@/components/time-range/utils';
 
 import type { IssueDetailTabType } from '../../typing/constants';
 
@@ -90,6 +92,25 @@ export default defineComponent({
   },
   setup(props, { emit }) {
     const currentTab = shallowRef<IssueDetailTabType>(IssueDetailTabEnum.LATEST);
+    // test
+    const tempAlertId = shallowRef('');
+    const getTempAlertId = async () => {
+      const alarmService = AlarmServiceFactory(AlarmType.ALERT);
+      const [startTime, endTime] = handleTransformToTimestamp(props.timeRange);
+      const params = {
+        bk_biz_ids: [],
+        conditions: props.conditions,
+        query_string: props.queryString,
+        start_time: startTime,
+        end_time: endTime,
+        page_size: 1,
+        page: 1,
+        ordering: [],
+      };
+      const res = await alarmService.getFilterTableList(params);
+      tempAlertId.value = res.data?.[0]?.id;
+    };
+    getTempAlertId();
 
     const handleTabChange = (tab: IssueDetailTabType) => {
       currentTab.value = tab;
@@ -118,7 +139,7 @@ export default defineComponent({
       switch (currentTab.value) {
         case IssueDetailTabEnum.LATEST:
         case IssueDetailTabEnum.EARLIEST:
-          return <IssuesDetailAlarmPanel alarmId={props.alarmId} />;
+          return <IssuesDetailAlarmPanel alarmId={props.alarmId || tempAlertId.value} />;
         case IssueDetailTabEnum.LIST:
           return (
             <IssuesDetailAlarmTable
