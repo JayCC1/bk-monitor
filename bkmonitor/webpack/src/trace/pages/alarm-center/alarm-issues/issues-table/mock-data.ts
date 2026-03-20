@@ -30,6 +30,7 @@ import type { RequestOptions } from '../../services/base';
 import type { CommonFilterParams } from '../../typings';
 import type { ImpactScope, IssueItem, IssuePriorityType, IssueStatusType } from '../typing';
 import type {
+  IssueIdentifier,
   IssuesAssigneeDialogEvent,
   IssuesOperationDialogEvent,
   IssuesPriorityDialogEvent,
@@ -40,10 +41,8 @@ import type {
 interface AssignIssuesParams {
   /** 负责人用户名列表 */
   assignee: string[];
-  /** 空间业务 ID */
-  bk_biz_id: number;
-  /** 待指派的 Issue ID 列表 */
-  issue_ids: string[];
+  /** 跨业务批量操作 Issue 标识列表 */
+  issues: IssueIdentifier[];
 }
 
 /** mock 请求参数类型 */
@@ -348,7 +347,7 @@ const STATUS_AFTER_ASSIGN: Partial<Record<IssueStatusType, { status: IssueStatus
 
 /**
  * @description 模拟指派负责人接口，更新 mock 数据缓存中的 Issue 数据并返回操作结果
- * @param {AssignIssuesParams} params - 指派请求参数（bk_biz_id / issue_ids / assignee）
+ * @param {AssignIssuesParams} params - 指派请求参数（issues / assignee）
  * @param {RequestOptions} config - 请求配置选项
  * @returns {Promise<IssuesOperationDialogEvent<'assign'>>} 包含 succeeded 和 failed 的操作结果
  */
@@ -366,7 +365,7 @@ export const mockAssignIssues = async (
   const succeeded: IssuesAssigneeDialogEvent[] = [];
   const failed: { issue_id: string; message: string }[] = [];
 
-  for (const issueId of params.issue_ids) {
+  for (const { issue_id: issueId } of params.issues) {
     // 模拟随机失败（约 5% 概率）
     if (Math.random() < 0.05) {
       failed.push({ issue_id: issueId, message: '服务端繁忙，请稍后重试' });
@@ -406,17 +405,15 @@ export const mockAssignIssues = async (
 
 /** 修改优先级请求参数 */
 interface UpdatePriorityParams {
-  /** 空间业务 ID */
-  bk_biz_id: number;
-  /** 待修改的 Issue ID 列表 */
-  issue_ids: string[];
+  /** 跨业务批量操作 Issue 标识列表 */
+  issues: IssueIdentifier[];
   /** 目标优先级 */
   priority: IssuePriorityType;
 }
 
 /**
  * @description 模拟修改优先级接口，更新 mock 数据缓存中的 Issue 优先级并返回操作结果
- * @param {UpdatePriorityParams} params - 修改优先级请求参数（bk_biz_id / issue_ids / priority）
+ * @param {UpdatePriorityParams} params - 修改优先级请求参数（issues / priority）
  * @param {RequestOptions} config - 请求配置选项
  * @returns {Promise<IssuesOperationDialogEvent<'priority'>>} 包含 succeeded 和 failed 的操作结果
  */
@@ -434,7 +431,7 @@ export const mockUpdatePriority = async (
   const succeeded: IssuesPriorityDialogEvent[] = [];
   const failed: { issue_id: string; message: string }[] = [];
 
-  for (const issueId of params.issue_ids) {
+  for (const { issue_id: issueId } of params.issues) {
     // 模拟随机失败（约 5% 概率）
     if (Math.random() < 0.05) {
       failed.push({ issue_id: issueId, message: '服务端繁忙，请稍后重试' });
@@ -467,15 +464,13 @@ export const mockUpdatePriority = async (
 
 /** 标记已解决请求参数 */
 interface ResolveIssuesParams {
-  /** 空间业务 ID */
-  bk_biz_id: number;
-  /** 待标记已解决的 Issue ID 列表 */
-  issue_ids: string[];
+  /** 跨业务批量操作 Issue 标识列表 */
+  issues: IssueIdentifier[];
 }
 
 /**
  * @description 模拟标记已解决接口，更新 mock 数据缓存中的 Issue 数据并返回操作结果
- * @param {ResolveIssuesParams} params - 标记已解决请求参数（bk_biz_id / issue_ids）
+ * @param {ResolveIssuesParams} params - 标记已解决请求参数（issues）
  * @param {RequestOptions} config - 请求配置选项
  * @returns {Promise<IssuesOperationDialogEvent<'resolve'>>} 包含 succeeded 和 failed 的操作结果
  */
@@ -493,7 +488,7 @@ export const mockResolveIssues = async (
   const succeeded: IssuesResolveDialogEvent[] = [];
   const failed: { issue_id: string; message: string }[] = [];
 
-  for (const issueId of params.issue_ids) {
+  for (const { issue_id: issueId } of params.issues) {
     // 模拟随机失败（约 5% 概率）
     if (Math.random() < 0.05) {
       failed.push({ issue_id: issueId, message: '服务端繁忙，请稍后重试' });

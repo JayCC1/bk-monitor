@@ -143,8 +143,7 @@ export default defineComponent({
     const {
       issuesDialogShow,
       issuesDialogType,
-      issuesDialogIds,
-      issuesDialogBizId,
+      issuesDialogData,
       issuesDialogParam,
       handleIssuesDialogShow,
       handleIssuesDialogHide,
@@ -778,8 +777,7 @@ export default defineComponent({
       handleIssuesDialogSuccess,
       issuesDialogShow,
       issuesDialogType,
-      issuesDialogIds,
-      issuesDialogBizId,
+      issuesDialogData,
       issuesDialogParam,
       handleIssuesShowDetail,
     };
@@ -1022,8 +1020,7 @@ export default defineComponent({
           <IssuesOperationDialogs
             dialogParam={this.issuesDialogParam}
             dialogType={this.issuesDialogType}
-            issuesBizId={this.issuesDialogBizId}
-            issuesIds={this.issuesDialogIds}
+            issuesData={this.issuesDialogData}
             show={this.issuesDialogShow}
             onSuccess={this.handleIssuesDialogSuccess}
             onUpdate:show={(v: boolean) => {

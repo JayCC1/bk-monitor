@@ -33,7 +33,12 @@ import { IssuePriorityEnum, IssuesPriorityMap } from '../../constant';
 import { mockUpdatePriority } from '../../issues-table/mock-data';
 
 import type { IssuesBatchActionEnum } from '../../constant';
-import type { IssuePriorityType, IssuesOperationDialogEvent, IssuesOperationDialogParams } from '../../typing';
+import type {
+  IssueIdentifier,
+  IssuePriorityType,
+  IssuesOperationDialogEvent,
+  IssuesOperationDialogParams,
+} from '../../typing';
 
 import './issues-priority-dialog.scss';
 
@@ -48,13 +53,9 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
-    /** 空间业务id */
-    issuesBizId: {
-      type: Number,
-    },
-    /** 当前操作的 Issues ID 列表 */
-    issuesIds: {
-      type: Array as PropType<string[]>,
+    /** 跨业务批量操作 Issue 标识数据 */
+    issuesData: {
+      type: Array as PropType<IssueIdentifier[]>,
       default: () => [],
     },
     /** dialog 私有参数（用于回填当前优先级） */
@@ -84,7 +85,7 @@ export default defineComponent({
      */
     const getTitle = () => {
       if (props.title) return props.title;
-      if (props.issuesIds?.length > 1) return window.i18n.t('批量修改优先级');
+      if (props.issuesData?.length > 1) return window.i18n.t('批量修改优先级');
       return window.i18n.t('修改优先级');
     };
 
@@ -97,8 +98,7 @@ export default defineComponent({
 
       // TODO: 修改优先级请求接口及处理结果提示 待完善
       const res = await mockUpdatePriority({
-        bk_biz_id: props.issuesBizId,
-        issue_ids: props.issuesIds,
+        issues: props.issuesData,
         priority: selectedPriority.value as IssuePriorityType,
       });
 

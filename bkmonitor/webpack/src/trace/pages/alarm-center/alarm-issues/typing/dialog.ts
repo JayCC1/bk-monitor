@@ -35,6 +35,14 @@ export interface DialogEventByActionMap {
   [IssuesBatchActionEnum.RESOLVE]: IssuesResolveDialogEvent;
 }
 
+/** Issue 标识符（跨业务批量操作请求中的单条 issue 结构） */
+export interface IssueIdentifier {
+  /** 空间业务 ID */
+  bk_biz_id: number;
+  /** Issue ID */
+  issue_id: string;
+}
+
 /** 指派责任人 dialog 组件 确认提交成功的回调事件对象 */
 export interface IssuesAssigneeDialogEvent {
   assignee: IssueItem['assignee'];

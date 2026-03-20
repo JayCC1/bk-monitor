@@ -32,7 +32,7 @@ import { useI18n } from 'vue-i18n';
 import { mockResolveIssues } from '../../issues-table/mock-data';
 
 import type { IssuesBatchActionEnum } from '../../constant';
-import type { IssuesOperationDialogEvent } from '../../typing';
+import type { IssueIdentifier, IssuesOperationDialogEvent } from '../../typing';
 
 import './issues-resolve-dialog.scss';
 
@@ -44,13 +44,9 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
-    /** 空间业务id */
-    issuesBizId: {
-      type: Number,
-    },
-    /** 当前操作的 Issues ID 列表 */
-    issuesIds: {
-      type: Array as PropType<string[]>,
+    /** 跨业务批量操作 Issue 标识数据 */
+    issuesData: {
+      type: Array as PropType<IssueIdentifier[]>,
       default: () => [],
     },
     /** 提示内容 */
@@ -74,7 +70,7 @@ export default defineComponent({
      */
     const getTip = () => {
       if (props.tip) return props.tip;
-      if (props.issuesIds?.length > 1) return window.i18n.t('确认批量标记为"已解决"？');
+      if (props.issuesData?.length > 1) return window.i18n.t('确认批量标记为"已解决"？');
       return window.i18n.t('确认标记为"已解决"？');
     };
 
@@ -86,8 +82,7 @@ export default defineComponent({
 
       // TODO: 标记已解决请求接口及处理结果提示 待完善
       const res = await mockResolveIssues({
-        bk_biz_id: props.issuesBizId,
-        issue_ids: props.issuesIds,
+        issues: props.issuesData,
       });
 
       let msg = {
