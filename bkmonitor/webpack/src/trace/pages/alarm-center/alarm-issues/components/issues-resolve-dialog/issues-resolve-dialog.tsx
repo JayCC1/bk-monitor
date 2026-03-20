@@ -26,10 +26,10 @@
 
 import { type PropType, defineComponent, shallowRef, watch } from 'vue';
 
-import { Button, Dialog, Message } from 'bkui-vue';
+import { Button, Dialog } from 'bkui-vue';
 import { useI18n } from 'vue-i18n';
 
-import { mockResolveIssues } from '../../issues-table/mock-data';
+import { resolveIssues, showOperationResult } from '../../services/issues-operations';
 
 import type { IssuesBatchActionEnum } from '../../constant';
 import type { IssueIdentifier, IssuesOperationDialogEvent } from '../../typing';
@@ -80,24 +80,16 @@ export default defineComponent({
     const handleConfirm = async () => {
       loading.value = true;
 
-      // TODO: 标记已解决请求接口及处理结果提示 待完善
-      const res = await mockResolveIssues({
-        issues: props.issuesData,
-      });
+      try {
+        const res = await resolveIssues({
+          issues: props.issuesData,
+        });
 
-      let msg = {
-        theme: 'success',
-        message: t('标记成功'),
-      };
-      if (res.failed?.length) {
-        msg = {
-          theme: 'error',
-          message: res.failed?.[0]?.message,
-        };
+        showOperationResult(res, t('标记成功'));
+        emit('success', res);
+      } finally {
+        loading.value = false;
       }
-
-      emit('success', res);
-      Message(msg);
     };
 
     /**

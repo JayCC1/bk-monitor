@@ -28,22 +28,19 @@ import { ImpactScopeResourceKeyEnum, IssuePriorityEnum, IssueStatusEnum } from '
 
 import type { RequestOptions } from '../../services/base';
 import type { CommonFilterParams } from '../../typings';
-import type { ImpactScope, IssueItem, IssuePriorityType, IssueStatusType } from '../typing';
 import type {
-  IssueIdentifier,
+  AssignIssuesParams,
+  ImpactScope,
+  IssueItem,
+  IssuePriorityType,
   IssuesAssigneeDialogEvent,
   IssuesOperationDialogEvent,
   IssuesPriorityDialogEvent,
   IssuesResolveDialogEvent,
-} from '../typing/dialog';
-
-/** 指派负责人请求参数 */
-interface AssignIssuesParams {
-  /** 负责人用户名列表 */
-  assignee: string[];
-  /** 跨业务批量操作 Issue 标识列表 */
-  issues: IssueIdentifier[];
-}
+  IssueStatusType,
+  ResolveIssuesParams,
+  UpdatePriorityParams,
+} from '../typing';
 
 /** mock 请求参数类型 */
 type MockFetchParams = CommonFilterParams & {
@@ -403,14 +400,6 @@ export const mockAssignIssues = async (
   return { succeeded, failed };
 };
 
-/** 修改优先级请求参数 */
-interface UpdatePriorityParams {
-  /** 跨业务批量操作 Issue 标识列表 */
-  issues: IssueIdentifier[];
-  /** 目标优先级 */
-  priority: IssuePriorityType;
-}
-
 /**
  * @description 模拟修改优先级接口，更新 mock 数据缓存中的 Issue 优先级并返回操作结果
  * @param {UpdatePriorityParams} params - 修改优先级请求参数（issues / priority）
@@ -461,12 +450,6 @@ export const mockUpdatePriority = async (
 
   return { succeeded, failed };
 };
-
-/** 标记已解决请求参数 */
-interface ResolveIssuesParams {
-  /** 跨业务批量操作 Issue 标识列表 */
-  issues: IssueIdentifier[];
-}
 
 /**
  * @description 模拟标记已解决接口，更新 mock 数据缓存中的 Issue 数据并返回操作结果

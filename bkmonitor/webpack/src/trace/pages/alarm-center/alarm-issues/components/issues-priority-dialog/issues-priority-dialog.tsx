@@ -26,11 +26,11 @@
 
 import { type PropType, defineComponent, shallowRef, watch } from 'vue';
 
-import { Button, Dialog, Message, Radio } from 'bkui-vue';
+import { Button, Dialog, Radio } from 'bkui-vue';
 import { useI18n } from 'vue-i18n';
 
 import { IssuePriorityEnum, IssuesPriorityMap } from '../../constant';
-import { mockUpdatePriority } from '../../issues-table/mock-data';
+import { showOperationResult, updateIssuesPriority } from '../../services/issues-operations';
 
 import type { IssuesBatchActionEnum } from '../../constant';
 import type {
@@ -96,25 +96,17 @@ export default defineComponent({
       if (!selectedPriority.value) return;
       loading.value = true;
 
-      // TODO: 修改优先级请求接口及处理结果提示 待完善
-      const res = await mockUpdatePriority({
-        issues: props.issuesData,
-        priority: selectedPriority.value as IssuePriorityType,
-      });
+      try {
+        const res = await updateIssuesPriority({
+          issues: props.issuesData,
+          priority: selectedPriority.value as IssuePriorityType,
+        });
 
-      let msg = {
-        theme: 'success',
-        message: t('修改成功'),
-      };
-      if (res.failed?.length) {
-        msg = {
-          theme: 'error',
-          message: res.failed?.[0]?.message,
-        };
+        showOperationResult(res, t('修改成功'));
+        emit('success', res);
+      } finally {
+        loading.value = false;
       }
-
-      emit('success', res);
-      Message(msg);
     };
 
     /**

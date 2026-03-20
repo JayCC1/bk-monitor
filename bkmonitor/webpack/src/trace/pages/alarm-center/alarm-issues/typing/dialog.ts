@@ -25,8 +25,17 @@
  */
 
 import type { IssuesBatchActionEnum } from '../constant';
+import type { IssuePriorityType } from './constants';
 import type { IssuesBatchActionType } from './constants';
 import type { IssueItem } from './table';
+
+/** 指派负责人请求参数 */
+export interface AssignIssuesParams {
+  /** 负责人用户名列表 */
+  assignee: string[];
+  /** 跨业务批量操作 Issue 标识列表 */
+  issues: IssueIdentifier[];
+}
 
 export interface DialogEventByActionMap {
   [IssuesBatchActionEnum.ASSIGN]: IssuesAssigneeDialogEvent;
@@ -89,4 +98,18 @@ export interface IssuesResolveDialogEvent {
   resolved_time: IssueItem['resolved_time'];
   status: IssueItem['status'];
   update_time: IssueItem['update_time'];
+}
+
+/** 标记已解决请求参数 */
+export interface ResolveIssuesParams {
+  /** 跨业务批量操作 Issue 标识列表 */
+  issues: IssueIdentifier[];
+}
+
+/** 修改优先级请求参数 */
+export interface UpdatePriorityParams {
+  /** 跨业务批量操作 Issue 标识列表 */
+  issues: IssueIdentifier[];
+  /** 目标优先级 */
+  priority: IssuePriorityType;
 }
