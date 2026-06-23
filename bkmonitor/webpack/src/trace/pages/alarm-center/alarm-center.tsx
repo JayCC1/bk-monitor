@@ -96,6 +96,15 @@ import { traceGenerateQueryString } from 'monitor-api/modules/apm_trace';
 import { handleTransformToTimestamp } from 'trace/components/time-range/utils';
 import { useI18n } from 'vue-i18n';
 
+/** 安全解码 URI 组件，解码失败则返回原值 */
+const safeDecodeURIComponent = (str: string): string => {
+  try {
+    return decodeURIComponent(str);
+  } catch {
+    return str;
+  }
+};
+
 import { type AlarmCenterApmHooks, ALARM_CENTER_APM_HOOKS_KEY } from './alarm-center-apm';
 import { useIssuesImpactScopeDrawer } from './alarm-issues/components/issues-impact-scope-drawer/hooks/use-issues-impact-scope-drawer';
 import IssuesImpactScopeDrawer from './alarm-issues/components/issues-impact-scope-drawer/issues-impact-scope-drawer';
@@ -679,7 +688,7 @@ export default defineComponent({
         }
         alarmStore.timezone = (timezone as string) || getDefaultTimezone();
         alarmStore.refreshInterval = Number(refreshInterval) || -1;
-        alarmStore.queryString = (queryString as string) || '';
+        alarmStore.queryString = queryString ? safeDecodeURIComponent(queryString as string) : '';
         alarmStore.conditions = tryURLDecodeParse(conditions as string, []);
         alarmStore.residentCondition = tryURLDecodeParse(residentCondition as string, []);
         /** 兼容事件中心的condition */
