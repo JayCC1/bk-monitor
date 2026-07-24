@@ -49,30 +49,18 @@ export interface IProcessColumnConfig {
   /** 是否可排序 */
   sortable?: boolean;
   /** 单元格渲染类型，驱动表格 View 选择渲染器 */
-  type:
-    | 'connectionCount'
-    | 'cpu'
-    | 'fileHandle'
-    | 'host'
-    | 'instanceCount'
-    | 'memory'
-    | 'name'
-    | 'port'
-    | 'text'
-    | 'uptime'
-    | 'uptimeRange';
+  type: 'cpu' | 'fileHandle' | 'host' | 'instanceCount' | 'memory' | 'name' | 'port' | 'text' | 'uptime';
 }
 
-/** 进程列表全部列配置（对齐设计稿 8 列） */
+/** 进程列表全部列配置 */
 export const PROCESS_LIST_COLUMNS: IProcessColumnConfig[] = [
   { id: 'name', name: '进程名', type: 'name', checked: true, disabled: true, minWidth: 220 },
   { id: 'instanceCount', name: '实例数', type: 'instanceCount', checked: true, minWidth: 100 },
   { id: 'user', name: '运行用户', type: 'text', checked: true, minWidth: 120 },
   { id: 'cpuUsage', name: 'CPU 总占用', type: 'cpu', checked: true, sortable: true, minWidth: 160 },
   { id: 'memRss', name: 'RSS 总内存', type: 'memory', checked: true, sortable: true, minWidth: 160 },
-  { id: 'connectionCount', name: '连接数', type: 'connectionCount', checked: true, minWidth: 100 },
-  { id: 'fileHandleCount', name: '文件句柄', type: 'fileHandle', checked: true, minWidth: 160 },
-  { id: 'uptimeRange', name: '运行时长范围', type: 'uptimeRange', checked: true, sortable: true, minWidth: 140 },
+  { id: 'fdNum', name: '文件句柄', type: 'fileHandle', checked: true, minWidth: 160 },
+  { id: 'uptime', name: '运行时长范围', type: 'uptime', checked: true, sortable: true, minWidth: 140 },
 ];
 
 /** 内存使用率进度条颜色阈值（与主机列表指标列一致） */
@@ -109,18 +97,17 @@ export const getFileHandleBarColor = (cpuUsage: number): string => {
   return '#21a380';
 };
 
-/** CPU 变化值展示文案 */
-export const formatCpuChange = (percent: number, status: 'falling' | 'rising' | 'stable'): string => {
-  if (status === 'stable') return '稳定';
-  const sign = percent > 0 ? '+' : '';
-  return `${sign}${percent}%`;
-};
-
-/** CPU 变化值颜色 */
-export const getCpuChangeColor = (status: 'falling' | 'rising' | 'stable'): string => {
-  if (status === 'rising') return '#e38b02';
-  if (status === 'falling') return '#21a380';
-  return '#8f9fbd';
+/** 运行时长毫秒数 → 展示文案（列表按小时，超过 1 天按天） */
+export const formatUptime = (milliseconds: number): string => {
+  if (!(milliseconds > 0)) {
+    return '--';
+  }
+  const seconds = milliseconds / 1000;
+  const hours = seconds / 3600;
+  if (hours >= 24) {
+    return `${+(hours / 24).toFixed(1)} d`;
+  }
+  return `${+hours.toFixed(1)} h`;
 };
 
 /** 物理内存 RSS 字节数 → 展示文案（如 92 MiB） */
@@ -138,18 +125,6 @@ export const formatMemRss = (bytes: number): string => {
   return `${+value.toFixed(value >= 100 || index === 0 ? 0 : 1)} ${units[index]}`;
 };
 
-/** 运行时长秒数 → 展示文案（列表按小时，超过 1 天按天） */
-export const formatUptime = (seconds: number): string => {
-  if (!(seconds > 0)) {
-    return '--';
-  }
-  const hours = seconds / 3600;
-  if (hours >= 24) {
-    return `${+(hours / 24).toFixed(1)} d`;
-  }
-  return `${+hours.toFixed(1)} h`;
-};
-
 /** 进程详情二级 Tab（Profiling 本期未开发，点击展示占位） */
 export const PROCESS_DETAIL_TABS = [
   { id: 'metric', label: '指标视图', icon: 'icon-zhibiaojiansuo' },
@@ -160,14 +135,15 @@ export const PROCESS_DETAIL_TABS = [
 export type ProcessDetailTab = (typeof PROCESS_DETAIL_TABS)[number]['id'];
 
 /**
- * 运行时长秒数 → 进程详情展示文案（如 `2.19d (2024-10-22 14:00:00)`）。
+ * 运行时长范围毫秒数 → 进程详情展示文案（如 `2.19d (2024-10-22 14:00:00)`）。
  * 起始时间按「当前时间 - 运行时长」推算，对齐设计稿头部信息。
  */
-export const formatProcessUptimeDetail = (seconds: number): string => {
-  if (!(seconds > 0)) {
+export const formatProcessUptimeDetail = (milliseconds: number): string => {
+  if (!(milliseconds > 0)) {
     return '--';
   }
-  const startTime = dayjs().subtract(seconds, 'second').format('YYYY-MM-DD HH:mm:ss');
+  const seconds = milliseconds / 1000;
+  const startTime = dayjs().subtract(milliseconds, 'millisecond').format('YYYY-MM-DD HH:mm:ss');
   const days = seconds / 86400;
   const duration = days >= 1 ? `${+days.toFixed(2)}d` : `${+(seconds / 3600).toFixed(2)}h`;
   return `${duration} (${startTime})`;

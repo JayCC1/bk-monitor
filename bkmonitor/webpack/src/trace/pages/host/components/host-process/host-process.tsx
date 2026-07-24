@@ -98,7 +98,7 @@ export default defineComponent({
         <div class='host-process__search'>
           <Input
             modelValue={this.keyword}
-            placeholder={this.t('输入 进程名 / PID')}
+            placeholder={this.t('输入 进程名')}
             type='search'
             clearable
             onClear={() => this.handleKeywordChange('')}

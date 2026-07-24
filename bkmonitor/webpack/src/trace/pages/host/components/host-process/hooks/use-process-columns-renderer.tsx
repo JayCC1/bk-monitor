@@ -28,10 +28,9 @@ import { useI18n } from 'vue-i18n';
 
 import {
   type IProcessColumnConfig,
-  formatCpuChange,
   formatMemRss,
+  formatUptime,
   getCpuBarColor,
-  getCpuChangeColor,
   getFileHandleBarColor,
   getMemBarColor,
   PROCESS_PORT_STATUS_MAP,
@@ -73,7 +72,7 @@ const renderNameCell = (row: ProcessItem, onClick: (row: ProcessItem) => void) =
       >
         {row.name || '--'}
       </span>
-      {row.subtitle && <span class='process-table-name__subtitle'>{row.subtitle}</span>}
+      <span class='process-table-name__subtitle'>{`名称匹配：process.name=${row.name}`}</span>
     </div>
   </div>
 );
@@ -113,7 +112,7 @@ const renderPortCell = (row: ProcessItem) => {
 const renderHostCell = (row: ProcessItem) => <span class='process-table-link'>{row.hostIp || '--'}</span>;
 
 /**
- * @description CPU 占用列渲染（百分比 + 变化值 + 进度条）
+ * @description CPU 占用列渲染（百分比 + 进度条）
  * @param {ProcessItem} row - 当前行进程数据
  * @returns {SlotReturnValue} CPU 列 JSX
  */
@@ -125,12 +124,6 @@ const renderCpuCell = (row: ProcessItem) => {
     <div class='process-table-cpu'>
       <div class='process-table-cpu__row'>
         <span class='process-table-cpu__value'>{`${row.cpuUsage}%`}</span>
-        <span
-          style={{ color: getCpuChangeColor(row.cpuChangeStatus) }}
-          class='process-table-cpu__change'
-        >
-          {formatCpuChange(row.cpuChangePercent, row.cpuChangeStatus)}
-        </span>
       </div>
       <div class='process-table-cpu__bar'>
         <div
@@ -174,33 +167,25 @@ const renderMemoryCell = (row: ProcessItem) => {
 };
 
 /**
- * @description 连接数列渲染
- * @param {ProcessItem} row - 当前行进程数据
- * @returns {SlotReturnValue} 连接数列 JSX
- */
-const renderConnectionCountCell = (row: ProcessItem) => (
-  <span>{row.connectionCount >= 0 ? row.connectionCount : '--'}</span>
-);
-
-/**
  * @description 文件句柄列渲染（数值 + 使用率 + 进度条）
  * @param {ProcessItem} row - 当前行进程数据
  * @returns {SlotReturnValue} 文件句柄列 JSX
  */
 const renderFileHandleCell = (row: ProcessItem) => {
-  if (!(row.fileHandleCount >= 0)) {
+  if (!(row.fdNum >= 0)) {
     return <span class='process-table-file-handle__empty'>--</span>;
   }
+  const fdRate = parseFloat(row.fdUsageRate) || 0;
   return (
     <div class='process-table-file-handle'>
       <div class='process-table-file-handle__row'>
-        <span class='process-table-file-handle__value'>{row.fileHandleCount.toLocaleString()}</span>
-        <span class='process-table-file-handle__percent'>{`${row.fileHandleUsagePercent}%`}</span>
+        <span class='process-table-file-handle__value'>{row.fdNum.toLocaleString()}</span>
+        <span class='process-table-file-handle__percent'>{`${row.fdUsageRate}%`}</span>
       </div>
       <div class='process-table-file-handle__bar'>
         <div
           style={{
-            width: `${Math.min(row.fileHandleUsagePercent, 100)}%`,
+            width: `${Math.min(fdRate, 100)}%`,
             backgroundColor: getFileHandleBarColor(row.cpuUsage),
           }}
           class='process-table-file-handle__bar-inner'
@@ -215,7 +200,7 @@ const renderFileHandleCell = (row: ProcessItem) => {
  * @param {ProcessItem} row - 当前行进程数据
  * @returns {SlotReturnValue} 运行时长列 JSX
  */
-const renderUptimeCell = (row: ProcessItem) => <span>{row.uptimeRange || '--'}</span>;
+const renderUptimeCell = (row: ProcessItem) => <span>{formatUptime(row.uptime)}</span>;
 
 /**
  * @description 进程表格列渲染器 hook，负责将列配置与各列的自定义渲染逻辑合并
@@ -258,13 +243,9 @@ export const useProcessColumnsRenderer = (rendererCtx: ProcessColumnsRendererCtx
           return renderCpuCell(row);
         case 'memory':
           return renderMemoryCell(row);
-        case 'connectionCount':
-          return renderConnectionCountCell(row);
         case 'fileHandle':
           return renderFileHandleCell(row);
         case 'uptime':
-          return renderUptimeCell(row);
-        case 'uptimeRange':
           return renderUptimeCell(row);
         default:
           return <span>{(row[config.id as keyof ProcessItem] ?? '--') as string}</span>;
