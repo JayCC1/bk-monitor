@@ -112,21 +112,21 @@ export const useSourceAnalysisRuleDetail = () => {
   };
 
   /**
-   * @description 添加资源
+   * @description 写入资源 ID（智能体为单个 id，Skill / 知识库为 id 数组，整体覆盖）
    * @param {AiResourceType} resource_type - 资源类型
-   * @param {SourceAnalysisRuleDto[AiResourceType]} resource - 资源数据
+   * @param {SourceAnalysisRuleDto[AiResourceType]} resource_ids - 资源 ID 值
    */
-  const handleAddResource = (resource_type: AiResourceType, resource: SourceAnalysisRuleDto[AiResourceType]) => {
+  const setResourceIds = (resource_type: AiResourceType, resource_ids: SourceAnalysisRuleDto[AiResourceType]) => {
     if (!detail.value) return;
-    detail.value = { ...detail.value, [resource_type]: resource };
+    detail.value = { ...detail.value, [resource_type]: resource_ids };
   };
 
   /**
-   * @description 删除资源
+   * @description 移除指定资源 ID
    * @param {AiResourceType} resource_type - 资源类型
    * @param {string} resource_id - 资源 id
    */
-  const handleRemoveResource = (resource_type: AiResourceType, resource_id: string) => {
+  const removeResourceId = (resource_type: AiResourceType, resource_id: string) => {
     if (!detail.value) return;
     const nextDetail = { ...detail.value };
     if (resource_type === AiResourceEnum.AGENT) {
@@ -138,10 +138,10 @@ export const useSourceAnalysisRuleDetail = () => {
   };
 
   /**
-   * @description 清除资源
+   * @description 清空指定类型的资源 ID
    * @param {AiResourceType} resource_type - 资源类型
    */
-  const handleClearResources = (resource_type: AiResourceType) => {
+  const clearResourceIds = (resource_type: AiResourceType) => {
     if (!detail.value) return;
     detail.value = { ...detail.value, [resource_type]: getResourceDefaultValue(resource_type) };
   };
@@ -204,11 +204,11 @@ export const useSourceAnalysisRuleDetail = () => {
     getCreateParams,
     /** 获取需要变更的字段（供更新/新增规则时使用） */
     getChangedFields,
-    /** 清除资源 */
-    handleClearResources,
-    /** 添加资源 */
-    handleAddResource,
-    /** 删除资源 */
-    handleRemoveResource,
+    /** 清空指定类型的资源 ID */
+    clearResourceIds,
+    /** 写入资源 ID（整体覆盖） */
+    setResourceIds,
+    /** 移除指定资源 ID */
+    removeResourceId,
   };
 };

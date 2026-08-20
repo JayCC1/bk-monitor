@@ -44,7 +44,7 @@ import { useAuthorityStore } from './store/modules/authority';
 import store from './store/store';
 import 'monitor-pc/common/global-login';
 import 'monitor-pc/common/user-display-name';
-
+import bkui from 'bkui-vue';
 import './static/scss/global.scss';
 import 'monitor-pc/static/css/reset.scss';
 import 'monitor-static/icons/monitor-icons.css';
@@ -91,7 +91,7 @@ if (window.__POWERED_BY_BK_WEWEB__) {
       userDisplayNameConfigure();
       const app = createApp(App);
       setVue(app as VueInstance);
-      app.use(store).use(router).use(i18n).use(directives).mount('#app');
+      app.use(store).use(router).use(bkui).use(i18n).use(directives).mount('#app');
       app.config.globalProperties = {
         $api: Api,
         $Message: bkUiMessage,

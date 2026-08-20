@@ -25,34 +25,46 @@
  */
 import { shallowRef } from 'vue';
 
-import { listAgents, listKnowledgebases, listSkills } from '../services/ai-resources';
+import { AiResourceEnum } from '../constants';
+import { getAgentsByIds, getKnowledgebasesByIds, getSkillsByIds } from '../services/ai-resources';
 
+import type { AiResourceType, SourceAnalysisRuleDto } from '../typings';
 import type { IAgent, IKnowledgebase, ISkill } from '@blueking/ai-ui-sdk/types';
 
+/** 资源详情项（智能体 / Skill / 知识库） */
+export type AiResourceItem = IAgent | IKnowledgebase | ISkill;
+
 /**
- * @description AI 资源池管理（智能体 / Skill / 知识库）
- * 当前接入 ai-resources.ts 中的占位接口，后续替换为真实全量接口即可。
+ * @description 已选 AI 资源详情管理（智能体 / Skill / 知识库）
+ * 列表数据即当前规则已绑定资源的详情，与规则中的资源 ID 保持同步：
+ * - 打开侧弹窗时根据规则中的资源 ID 批量查询（fetchResources）；
+ * - 资源选择弹窗确认后直接写入回传的资源对象（setResource），无需再次查询；
+ * - 删除 / 清空时本地同步移除（removeResource / clearResource）。
  */
 export const useAiResources = () => {
-  /** 智能体列表 */
+  /** 已选智能体列表（单选，0 或 1 项） */
   const agents = shallowRef<IAgent[]>([]);
-  /** Skill 列表 */
+  /** 已选 Skill 列表 */
   const skills = shallowRef<ISkill[]>([]);
-  /** 知识库列表 */
+  /** 已选知识库列表 */
   const knowledgebases = shallowRef<IKnowledgebase[]>([]);
   /** 加载中 */
   const loading = shallowRef(false);
 
   /**
-   * @description 拉取全量资源池数据
+   * @description 根据规则中的资源 ID 批量查询资源详情
+   * @param {Pick<SourceAnalysisRuleDto, 'agent_id' | 'knowledge_base_ids' | 'skill_ids'>} rule 规则中的资源 ID
    */
-  const fetchResources = async () => {
+  const fetchResources = async (rule: Pick<SourceAnalysisRuleDto, 'agent_id' | 'knowledge_base_ids' | 'skill_ids'>) => {
     loading.value = true;
     try {
+      const { agent_id: agentId, knowledge_base_ids: knowledgebaseIds = [], skill_ids: skillIds = [] } = rule;
       const [agentList, skillList, knowledgebaseList] = await Promise.all([
-        listAgents().catch(() => []),
-        listSkills().catch(() => []),
-        listKnowledgebases().catch(() => []),
+        agentId ? getAgentsByIds([Number(agentId)]).catch(() => []) : Promise.resolve([]),
+        skillIds.length ? getSkillsByIds(skillIds.map(Number)).catch(() => []) : Promise.resolve([]),
+        knowledgebaseIds.length
+          ? getKnowledgebasesByIds(knowledgebaseIds.map(Number)).catch(() => [])
+          : Promise.resolve([]),
       ]);
       agents.value = agentList;
       skills.value = skillList;
@@ -63,69 +75,70 @@ export const useAiResources = () => {
   };
 
   /**
-   * @description 删除指定智能体
+   * @description 写入指定类型的已选资源详情（弹窗确认后调用，数据来自弹窗回传）
+   * @param {AiResourceType} resourceType 资源类型
+   * @param {AiResourceItem[]} items 资源详情列表
    */
-  const removeAgent = (agent: IAgent) => {
-    agents.value = agents.value.filter(item => item.id !== agent.id);
+  const setResource = (resourceType: AiResourceType, items: AiResourceItem[]) => {
+    if (resourceType === AiResourceEnum.AGENT) {
+      agents.value = items as IAgent[];
+    } else if (resourceType === AiResourceEnum.SKILL) {
+      skills.value = items as ISkill[];
+    } else {
+      knowledgebases.value = items as IKnowledgebase[];
+    }
   };
 
   /**
-   * @description 清空智能体列表
+   * @description 移除指定资源（与规则中的资源 ID 删除操作配套）
+   * @param {AiResourceType} resourceType 资源类型
+   * @param {string} resourceId 资源 id
    */
-  const clearAgents = () => {
+  const removeResource = (resourceType: AiResourceType, resourceId: string) => {
+    if (resourceType === AiResourceEnum.AGENT) {
+      agents.value = [];
+    } else if (resourceType === AiResourceEnum.SKILL) {
+      skills.value = skills.value.filter(item => String(item.id) !== resourceId);
+    } else {
+      knowledgebases.value = knowledgebases.value.filter(item => String(item.id) !== resourceId);
+    }
+  };
+
+  /**
+   * @description 清空指定类型的已选资源（与规则中的资源 ID 清空操作配套）
+   * @param {AiResourceType} resourceType 资源类型
+   */
+  const clearResource = (resourceType: AiResourceType) => {
+    setResource(resourceType, []);
+  };
+
+  /**
+   * @description 重置全部资源列表（关闭侧弹窗 / 新增态时调用）
+   */
+  const resetResources = () => {
     agents.value = [];
-  };
-
-  /**
-   * @description 删除指定 Skill
-   */
-  const removeSkill = (skill: ISkill) => {
-    skills.value = skills.value.filter(item => item.id !== skill.id);
-  };
-
-  /**
-   * @description 清空 Skill 列表
-   */
-  const clearSkills = () => {
     skills.value = [];
-  };
-
-  /**
-   * @description 删除指定知识库
-   */
-  const removeKnowledgebase = (knowledgebase: IKnowledgebase) => {
-    knowledgebases.value = knowledgebases.value.filter(item => item.id !== knowledgebase.id);
-  };
-
-  /**
-   * @description 清空知识库列表
-   */
-  const clearKnowledgebases = () => {
     knowledgebases.value = [];
   };
 
   return {
-    /** 智能体列表 */
+    /** 已选智能体列表 */
     agents,
-    /** Skill 列表 */
+    /** 已选 Skill 列表 */
     skills,
-    /** 知识库列表 */
+    /** 已选知识库列表 */
     knowledgebases,
     /** 加载中 */
     loading,
-    /** 拉取全量资源池数据 */
+    /** 根据规则中的资源 ID 批量查询资源详情 */
     fetchResources,
-    /** 删除指定智能体 */
-    removeAgent,
-    /** 清空智能体列表 */
-    clearAgents,
-    /** 删除指定 Skill */
-    removeSkill,
-    /** 清空 Skill 列表 */
-    clearSkills,
-    /** 删除指定知识库 */
-    removeKnowledgebase,
-    /** 清空知识库列表 */
-    clearKnowledgebases,
+    /** 写入指定类型的已选资源详情 */
+    setResource,
+    /** 移除指定资源 */
+    removeResource,
+    /** 清空指定类型的已选资源 */
+    clearResource,
+    /** 重置全部资源列表 */
+    resetResources,
   };
 };
