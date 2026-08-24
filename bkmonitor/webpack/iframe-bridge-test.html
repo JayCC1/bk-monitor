@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>监控平台 iframe 双向联动测试</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        display: flex;
+        height: 100vh;
+        font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        font-size: 13px;
+        color: #313238;
+        background: #f5f7fa;
+      }
+      .panel {
+        width: 460px;
+        min-width: 460px;
+        padding: 16px;
+        overflow-y: auto;
+        background: #fff;
+        border-right: 1px solid #dcdee5;
+      }
+      h1 {
+        font-size: 15px;
+        margin-bottom: 4px;
+      }
+      .tip {
+        color: #979ba5;
+        font-size: 12px;
+        margin-bottom: 12px;
+      }
+      .warn {
+        display: none;
+        padding: 8px 10px;
+        margin-bottom: 12px;
+        color: #ea3636;
+        background: #fee;
+        border: 1px solid #ea3636;
+        border-radius: 4px;
+        line-height: 1.6;
+      }
+      .group {
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #eaebf0;
+      }
+      .group h2 {
+        font-size: 13px;
+        margin-bottom: 8px;
+        color: #63656e;
+      }
+      label {
+        display: block;
+        margin-bottom: 4px;
+        color: #63656e;
+      }
+      input[type='text'],
+      input[type='number'] {
+        width: 100%;
+        padding: 6px 8px;
+        margin-bottom: 8px;
+        border: 1px solid #c4c6cc;
+        border-radius: 3px;
+        font-size: 12px;
+        font-family: inherit;
+      }
+      input:focus {
+        outline: none;
+        border-color: #3a84ff;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .row > * {
+        flex: 1;
+      }
+      button {
+        padding: 6px 12px;
+        border: 1px solid #3a84ff;
+        border-radius: 3px;
+        color: #fff;
+        background: #3a84ff;
+        font-size: 12px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      button.ghost {
+        color: #3a84ff;
+        background: #fff;
+      }
+      button:hover {
+        opacity: 0.85;
+      }
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+      .checkbox-row label {
+        margin: 0;
+      }
+      .url-preview {
+        padding: 6px 8px;
+        margin-bottom: 8px;
+        background: #f0f1f5;
+        border-radius: 3px;
+        word-break: break-all;
+        font-family: Consolas, monospace;
+        font-size: 11px;
+        color: #63656e;
+        max-height: 80px;
+        overflow-y: auto;
+      }
+      .status {
+        font-size: 13px;
+        margin-bottom: 8px;
+      }
+      .status b {
+        color: #3a84ff;
+      }
+      .log {
+        height: 260px;
+        padding: 8px;
+        overflow-y: auto;
+        background: #1e1e1e;
+        border-radius: 4px;
+        font-family: Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.7;
+      }
+      .log .in {
+        color: #8fdd8f;
+      }
+      .log .out {
+        color: #7ec3ff;
+      }
+      .log .sys {
+        color: #999;
+      }
+      .log .time {
+        color: #666;
+        margin-right: 6px;
+      }
+      .frame-wrap {
+        flex: 1;
+        display: flex;
+      }
+      iframe {
+        flex: 1;
+        border: none;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel">
+      <h1>监控平台 iframe 双向联动测试</h1>
+      <p class="tip">模拟第三方父页面：嵌入 APM 大屏，测试 route-change 广播与 filter-app_name 参数联动</p>
+
+      <div
+        class="warn"
+        id="fileWarn"
+      >
+        当前页面 origin 为 <b>null</b>（file:// 直接打开）。<br />
+        监控侧会校验 parentOrigin 必须是 http/https，请改用本地 http 服务打开本页，例如：<br />
+        <code>npx serve .</code> 或 <code>python -m http.server 8899</code>
+      </div>
+
+      <div class="group">
+        <h2>1. 嵌入配置</h2>
+        <label>监控平台地址（不含 hash，search 里带 bizId 等参数）</label>
+        <input
+          type="text"
+          id="baseUrl"
+          placeholder="如 http://dev.xxx.com:7001/?bizId=2 或 https://monitor.xxx.com/?bizId=2"
+        />
+        <label>路由 hash</label>
+        <input
+          type="text"
+          id="routeHash"
+          value="#/apm/application"
+        />
+        <label>完整 iframe 地址（自动拼接 parentOrigin=<span id="originText"></span>）</label>
+        <div
+          class="url-preview"
+          id="urlPreview"
+        >
+          -
+        </div>
+        <button
+          id="loadBtn"
+          type="button"
+        >
+          加载 / 重新加载 iframe
+        </button>
+      </div>
+
+      <div class="group">
+        <h2>2. 首条消息测试（复现「首次不更新」场景）</h2>
+        <div class="checkbox-row">
+          <input
+            type="checkbox"
+            id="autoSend"
+            checked
+          />
+          <label for="autoSend">iframe load 后立即下发 set-params</label>
+        </div>
+        <div class="row">
+          <div>
+            <label>应用名</label>
+            <input
+              type="text"
+              id="autoAppName"
+              placeholder="目标 filter-app_name"
+            />
+          </div>
+          <div>
+            <label>延迟 (ms)</label>
+            <input
+              type="number"
+              id="autoDelay"
+              value="0"
+              min="0"
+              step="100"
+            />
+          </div>
+        </div>
+        <label>服务名（可选，携带时联动到服务页）</label>
+        <input
+          type="text"
+          id="autoServiceName"
+          placeholder="目标 filter-service_name"
+        />
+      </div>
+
+      <div class="group">
+        <h2>3. 手动下发联动参数</h2>
+        <label>应用名（只切服务时可留空，表示当前应用）</label>
+        <input
+          type="text"
+          id="appName"
+          placeholder="目标 filter-app_name"
+        />
+        <label>服务名（可选，携带时联动到服务页）</label>
+        <input
+          type="text"
+          id="serviceName"
+          placeholder="目标 filter-service_name"
+        />
+        <div class="row">
+          <button
+            id="sendPostMessage"
+            type="button"
+          >
+            postMessage 下发
+          </button>
+          <button
+            id="sendHash"
+            class="ghost"
+            type="button"
+          >
+            改 iframe hash 下发
+          </button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>4. 状态与日志</h2>
+        <p class="status">iframe 内当前应用：<b id="currentApp">-</b>　/　服务：<b id="currentService">-</b></p>
+        <div
+          class="row"
+          style="margin-bottom: 8px"
+        >
+          <button
+            id="clearLog"
+            class="ghost"
+            type="button"
+          >
+            清空日志
+          </button>
+        </div>
+        <div
+          class="log"
+          id="log"
+        ></div>
+      </div>
+    </div>
+
+    <div class="frame-wrap">
+      <iframe
+        id="frame"
+        title="monitor-iframe"
+      ></iframe>
+    </div>
+
+    <script>
+      // biome-ignore lint: 保留 IIFE function 表达式写法
+      (function () {
+        // biome-ignore lint: 保留 $ 工具函数 function 表达式写法
+        var $ = function (id) {
+          return document.getElementById(id);
+        };
+        var frame = $('frame');
+        var iframeOrigin = '';
+        var loadRequested = false;
+
+        if (location.origin === 'null' || location.protocol === 'file:') {
+          $('fileWarn').style.display = 'block';
+        }
+        $('originText').textContent = location.origin;
+
+        // 配置持久化，方便反复测试
+        // biome-ignore lint: 保留 forEach 与回调 function 表达式写法
+        ['baseUrl', 'routeHash', 'appName', 'serviceName', 'autoAppName', 'autoServiceName', 'autoDelay'].forEach(
+          id => {
+            var el = $(id);
+            var saved = localStorage.getItem(`iframe-bridge-test:${id}`);
+            if (saved) el.value = saved;
+            // biome-ignore lint: 保留回调 function 表达式写法
+            el.addEventListener('input', function () {
+              localStorage.setItem(`iframe-bridge-test:${id}`, el.value);
+              refreshPreview();
+            });
+          }
+        );
+
+        function getRouteHash() {
+          var h = $('routeHash').value.trim() || '#/apm/application';
+          return h.charAt(0) === '#' ? h : `${h}`;
+        }
+
+        function buildIframeUrl() {
+          var base = $('baseUrl').value.trim().replace(/#.*$/, '');
+          if (!base) return '';
+          var sep = base.indexOf('?') > -1 ? '&' : '?';
+          return `${base + sep}parentOrigin=${encodeURIComponent(location.origin)}${getRouteHash()}`;
+        }
+
+        function refreshPreview() {
+          $('urlPreview').textContent = buildIframeUrl() || '-';
+        }
+
+        function log(direction, text, cls) {
+          var line = document.createElement('div');
+          line.className = cls;
+          var time =
+            new Date().toLocaleTimeString('zh-CN', { hour12: false }) +
+            '.' +
+            String(Date.now() % 1000).padStart(3, '0');
+          line.innerHTML = `<span class="time">${time}</span>[${direction}] ${escapeHtml(text)}`;
+          var logEl = $('log');
+          logEl.appendChild(line);
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function escapeHtml(s) {
+          return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function buildPayload(appName, serviceName) {
+          var payload = {};
+          if (appName) payload['filter-app_name'] = appName;
+          if (serviceName) payload['filter-service_name'] = serviceName;
+          return payload;
+        }
+
+        function sendViaPostMessage(appName, serviceName, tag) {
+          if (!iframeOrigin || !frame.contentWindow) {
+            alert('请先加载 iframe');
+            return;
+          }
+          var msg = { type: 'set-params', payload: buildPayload(appName, serviceName) };
+          frame.contentWindow.postMessage(msg, iframeOrigin);
+          log(`发出 ${tag || 'postMessage'}`, JSON.stringify(msg), 'out');
+        }
+
+        function sendViaHash(appName, serviceName) {
+          if (!iframeOrigin || !frame.src) {
+            alert('请先加载 iframe');
+            return;
+          }
+          var url = new URL(frame.src);
+          var parts = (url.hash || getRouteHash()).replace(/^#/, '').split('?');
+          var params = new URLSearchParams(parts[1] || '');
+          if (appName) params.set('filter-app_name', appName);
+          // 服务名为空时移除该参数，避免带着上一次的服务残留
+          if (serviceName) params.set('filter-service_name', serviceName);
+          else params.delete('filter-service_name');
+          // 只改 hash 不会触发 iframe 刷新，依赖监控侧 hashchange 监听
+          frame.src = `${url.origin + url.pathname + url.search}#${parts[0]}?${params.toString()}`;
+          log('发出 改hash', params.toString(), 'out');
+        }
+
+        // biome-ignore lint: 保留回调 function 表达式写法
+        $('loadBtn').addEventListener('click', function () {
+          var url = buildIframeUrl();
+          if (!url) {
+            alert('请填写监控平台地址');
+            return;
+          }
+          iframeOrigin = new URL(url).origin;
+          loadRequested = true;
+          $('currentApp').textContent = '-';
+          $('currentService').textContent = '-';
+          frame.src = url;
+          log('系统', `加载 iframe: ${url}`, 'sys');
+        });
+
+        // biome-ignore lint: 保留回调 function 表达式写法
+        frame.addEventListener('load', function () {
+          if (!loadRequested) return;
+          log('系统', 'iframe load 事件触发', 'sys');
+          if ($('autoSend').checked) {
+            // biome-ignore lint: 在 if 块内声明临时变量
+            var appName = $('autoAppName').value.trim();
+            // biome-ignore lint: 在 if 块内声明临时变量
+            var serviceName = $('autoServiceName').value.trim();
+            // biome-ignore lint: 在 if 块内声明临时变量
+            var delay = +$('autoDelay').value || 0;
+            if (appName || serviceName) {
+              // biome-ignore lint: 保留回调 function 表达式写法
+              setTimeout(function () {
+                sendViaPostMessage(appName, serviceName, `首条(onload+${delay}ms)`);
+              }, delay);
+            }
+          }
+        });
+
+        // biome-ignore lint: 保留回调 function 表达式写法
+        $('sendPostMessage').addEventListener('click', function () {
+          var appName = $('appName').value.trim();
+          var serviceName = $('serviceName').value.trim();
+          if (appName || serviceName) sendViaPostMessage(appName, serviceName);
+          else alert('应用名和服务名至少填一个');
+        });
+
+        // biome-ignore lint: 保留回调 function 表达式写法
+        $('sendHash').addEventListener('click', function () {
+          var appName = $('appName').value.trim();
+          var serviceName = $('serviceName').value.trim();
+          if (appName || serviceName) sendViaHash(appName, serviceName);
+          else alert('应用名和服务名至少填一个');
+        });
+
+        // biome-ignore lint: 保留回调 function 表达式写法
+        $('clearLog').addEventListener('click', function () {
+          $('log').innerHTML = '';
+        });
+
+        // 接收监控平台广播的 route-change
+        // biome-ignore lint: 保留回调 function 表达式写法
+        window.addEventListener('message', function (e) {
+          var data = e.data || {};
+          if (data.source !== 'bk-monitor' || data.type !== 'route-change') return;
+          var appName = data.query?.['filter-app_name'] || '-';
+          var serviceName = data.query?.['filter-service_name'] || '-';
+          $('currentApp').textContent = appName;
+          $('currentService').textContent = serviceName;
+          log(
+            '收到 route-change',
+            `filter-app_name=${appName}  filter-service_name=${serviceName}  hash=${data.hash}`,
+            'in'
+          );
+        });
+
+        refreshPreview();
+      })();
+    </script>
+  </body>
+</html>
