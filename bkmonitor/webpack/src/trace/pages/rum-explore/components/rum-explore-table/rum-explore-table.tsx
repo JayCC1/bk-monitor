@@ -25,7 +25,7 @@
  */
 import { type PropType, computed, defineComponent, nextTick, onBeforeUnmount, toRef, useTemplateRef, watch } from 'vue';
 
-import { Exception, Loading } from 'bkui-vue';
+import { Loading } from 'bkui-vue';
 import { useI18n } from 'vue-i18n';
 
 import ExploreFieldSetting from '../../../trace-explore/components/explore-field-setting/explore-field-setting';
@@ -36,6 +36,7 @@ import { statisticsApi } from '../../services/rum-search';
 import { useScenarioRenderer } from './hooks/use-scenario-renderer';
 import { useTableScrollOptimize } from '@/hooks/use-table-scroll-optimize';
 import CommonTable from '@/pages/alarm-center/components/alarm-table/components/common-table/common-table';
+import ExploreTableEmpty from '@/pages/trace-explore/components/trace-explore-table/components/explore-table-empty';
 
 import type { TimeRangeType } from '../../../../components/time-range/utils';
 import type { BaseTableColumn } from '../../../trace-explore/components/trace-explore-table/typing';
@@ -112,6 +113,11 @@ export default defineComponent({
       type: Object as PropType<Map<string, IRumField>>,
       default: () => new Map(),
     },
+    /** 表格空数据类型 */
+    emptyType: {
+      type: String as PropType<'empty' | 'search-empty'>,
+      default: 'search-empty',
+    },
   },
   emits: {
     /** 点击单元格筛选值或统计列表触发，回传检索条件 */
@@ -179,7 +185,6 @@ export default defineComponent({
         }
         // 加锁：在数据返回并渲染完成前，阻止滚动事件重复触发
         isRequestingLock = true;
-
         emit('scrollToEnd');
       }
     };
@@ -275,21 +280,37 @@ export default defineComponent({
                   },
                 ] as BaseTableColumn[])
               : []),
+            ...(this.showSettings
+              ? ([
+                  {
+                    colKey: '__col_setting__',
+                    width: 32,
+                    minWidth: 32,
+                    fixed: 'right',
+                    align: 'center',
+                    resizable: false,
+                    thClassName: '__table-custom-setting-col__',
+                    title: (() =>
+                      (
+                        <ExploreFieldSetting
+                          class='table-field-setting'
+                          sourceList={this.displayableFields}
+                          targetList={this.displayFieldKeys}
+                          onConfirm={fields => this.$emit('displayFieldChange', fields)}
+                        />
+                      ) as unknown as SlotReturnValue) as BaseTableColumn['title'],
+                    cellRenderer: () => null,
+                  },
+                ] as BaseTableColumn[])
+              : []),
           ]}
           empty={() =>
             (
-              <Exception
-                description={this.t('搜索结果为空')}
-                scene='part'
-                type='search-empty'
-              >
-                <span
-                  class='clear-filter-btn'
-                  onClick={() => this.$emit('clearFilter')}
-                >
-                  {this.t('清空检索条件')}
-                </span>
-              </Exception>
+              <ExploreTableEmpty
+                showOperation={this.emptyType === 'search-empty'}
+                type={this.emptyType}
+                onClearFilter={() => this.$emit('clearFilter')}
+              />
             ) as unknown as SlotReturnValue
           }
           headerAffixedTop={{
@@ -315,7 +336,7 @@ export default defineComponent({
                 ) as unknown as SlotReturnValue)
               : null
           }
-          autoFillSpace={true}
+          autoFillSpace={!this.data?.length}
           data={this.data}
           loading={this.loading}
           rowKey={this.tableRowKey}

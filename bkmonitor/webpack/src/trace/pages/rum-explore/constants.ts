@@ -107,6 +107,9 @@ export const DURATION_COLOR_THRESHOLDS = {
   warning: 2000 * 1000,
 };
 
+/** 耗时字段支持的单位集合，命中后按 duration 单元格渲染（量纲需对齐 formatDuration 的 unit 参数） */
+export const RUM_DURATION_FIELD_UNITS = new Set(['us', 'ms']);
+
 /** 微秒级时间戳字段，按日期时间展示而非耗时 */
 export const RUM_TIME_FIELDS = new Set(['start_time', 'end_time', 'events.timestamp']);
 

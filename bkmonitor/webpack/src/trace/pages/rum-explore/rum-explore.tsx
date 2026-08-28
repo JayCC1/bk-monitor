@@ -29,6 +29,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 
 import RetrievalFilter from '../../components/retrieval-filter/retrieval-filter';
+import { EMode } from '../../components/retrieval-filter/typing';
 import { traceWhereChangeFormatter, traceWhereFormatter } from '../../components/retrieval-filter/utils';
 import useUserConfig from '../../hooks/useUserConfig';
 import { updateTimezone } from '../../i18n/dayjs';
@@ -84,6 +85,14 @@ export default defineComponent({
     const { getFieldValues } = useRumFieldValues(computed(() => viewConfigCtx.viewConfig.value.fields));
     /** 是否处于 span 视角下「指定具体类型」的特殊态 */
     const isSpanSpecialPerspective = computed(() => store.mode === 'span' && store.spanType);
+    /** 是否存在检索条件，决定表格空状态类型 */
+    const emptyType = computed(() => {
+      const hasCondition =
+        queryCtx.filterMode.value === EMode.queryString
+          ? queryCtx.queryString.value.trim()
+          : queryCtx.where.value.length > 0 || queryCtx.commonWhere.value.length > 0;
+      return hasCondition ? 'search-empty' : 'empty';
+    });
 
     /** 列配置集中管理：显隐/顺序 + 列宽，并持久化到用户常驻配置 */
     const columnConfig = useRumColumnConfig({
@@ -210,6 +219,7 @@ export default defineComponent({
       store,
       applicationList,
       columnConfig,
+      emptyType,
       isSpanSpecialPerspective,
       favoriteBoxRef,
       favoriteCtx,
@@ -348,6 +358,7 @@ export default defineComponent({
                               commonParams={queryCtx.commonParams.value}
                               data={tableCtx.tableData.value}
                               displayableFields={this.columnConfig.displayableFields.value}
+                              emptyType={this.emptyType}
                               fieldMap={this.columnConfig.fieldMap.value}
                               hasMore={tableCtx.hasMore.value}
                               loading={tableCtx.loading.value}
