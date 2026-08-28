@@ -68,7 +68,7 @@ export default defineComponent({
       type: Array as PropType<IRumField[]>,
       default: () => [],
     },
-    /** 是否显示列设置（指定 span 类型时由类型决定列，隐藏设置入口） */
+    /** 是否显示列设置：span 视角选中具体类型（特殊态）时由类型决定列，隐藏设置入口 */
     showSettings: {
       type: Boolean,
       default: true,
@@ -107,6 +107,11 @@ export default defineComponent({
       type: Array as PropType<TimeRangeType>,
       default: () => [],
     },
+    /** 字段映射表：按字段名快速查找字段元数据（性能优化方案，非必填） */
+    fieldMap: {
+      type: Object as PropType<Map<string, IRumField>>,
+      default: () => new Map(),
+    },
   },
   emits: {
     /** 点击单元格筛选值或统计列表触发，回传检索条件 */
@@ -131,7 +136,12 @@ export default defineComponent({
     /** 本地请求锁：从发起加载到数据渲染完成期间，忽略滚动事件，避免 scrollLoading 切换间隙重复触发 */
     let isRequestingLock = false;
     /** 可展示字段映射表：按字段名快速查找字段元数据 */
-    const fieldMap = computed(() => new Map(props.displayableFields.map(field => [field.name, field])));
+    const fieldMap = computed(() => {
+      if (props.fieldMap?.size) {
+        return props.fieldMap;
+      }
+      return new Map(props.displayableFields.map(field => [field.name, field]));
+    });
 
     const { activeFieldName, selectField, showPopover, statisticsListRef, destroyPopover, openPopover } =
       useFieldStatisticsPopover('bottom');

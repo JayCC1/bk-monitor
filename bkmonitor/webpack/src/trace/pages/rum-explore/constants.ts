@@ -131,6 +131,9 @@ export const RUM_COLUMN_WIDTH_MAP: Record<string, number> = {
 
 export const DEFAULT_COLUMN_WIDTH = 150;
 
+/** 表格列最小宽度 */
+export const DEFAULT_MIN_COLUMN_WIDTH = 100;
+
 /** status.code 列的展示配置，数值语义沿用 OpenTelemetry 的 UNSET / OK / ERROR，tagColor/tagBgColor 供内置 TAGS 渲染着色 */
 export const RUM_STATUS_CODE_MAP: Record<number, { alias: string; tagBgColor: string; tagColor: string }> = {
   0: { alias: window.i18n.t('异常'), tagBgColor: '#ff9c011f', tagColor: '#ff9c01' },

@@ -49,7 +49,7 @@ import {
   useRumTableData,
   useRumViewConfig,
 } from './composables';
-import { RUM_RESIDENT_SETTING_KEY } from './constants';
+import { RUM_COLUMN_CONFIG_KEY, RUM_RESIDENT_SETTING_KEY } from './constants';
 import { getApplicationList } from './services/rum-application';
 
 import type { ConditionChangeEvent } from '../trace-explore/typing';
@@ -82,10 +82,20 @@ export default defineComponent({
     const queryCtx = useRumQuery({ extraFilters: spanTypeCtx.spanTypeFilters });
     const tableCtx = useRumTableData(queryCtx.commonParams);
     const { getFieldValues } = useRumFieldValues(computed(() => viewConfigCtx.viewConfig.value.fields));
+    /** 是否处于 span 视角下「指定具体类型」的特殊态 */
+    const isSpanSpecialPerspective = computed(() => store.mode === 'span' && store.spanType);
 
     /** 列配置集中管理：显隐/顺序 + 列宽，并持久化到用户常驻配置 */
     const columnConfig = useRumColumnConfig({
       viewConfig: viewConfigCtx.viewConfig,
+      cacheKey: computed(() =>
+        store.mode && store.appName ? `${RUM_COLUMN_CONFIG_KEY}_${store.mode}_${store.appName}` : ''
+      ),
+      overrideDisplayFields: computed(() =>
+        isSpanSpecialPerspective.value
+          ? (viewConfigCtx.viewConfig.value.span_type_display_fields?.[store.spanType] ?? [])
+          : []
+      ),
     });
 
     const favoriteBoxRef = useTemplateRef<InstanceType<typeof FavoriteBox>>('favoriteBoxRef');
@@ -186,7 +196,6 @@ export default defineComponent({
     onMounted(async () => {
       updateTimezone(store.timezone);
       await fetchUserConfig();
-      await columnConfig.loadColumnConfig();
       await fetchApplicationList();
       queryCtx.handleQuery();
     });
@@ -201,6 +210,7 @@ export default defineComponent({
       store,
       applicationList,
       columnConfig,
+      isSpanSpecialPerspective,
       favoriteBoxRef,
       favoriteCtx,
       favoriteList,
@@ -338,11 +348,12 @@ export default defineComponent({
                               commonParams={queryCtx.commonParams.value}
                               data={tableCtx.tableData.value}
                               displayableFields={this.columnConfig.displayableFields.value}
+                              fieldMap={this.columnConfig.fieldMap.value}
                               hasMore={tableCtx.hasMore.value}
                               loading={tableCtx.loading.value}
                               mode={this.store.mode}
                               scrollLoading={tableCtx.scrollLoading.value}
-                              showSettings={this.columnConfig.showSettings.value}
+                              showSettings={!this.isSpanSpecialPerspective}
                               sort={this.store.sortParams}
                               timeRange={this.store.timeRange}
                               onClearFilter={queryCtx.clearQuery}

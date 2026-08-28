@@ -23,14 +23,13 @@
  * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-import { type Ref, computed, shallowRef } from 'vue';
+import { type MaybeRef, type Ref, computed, shallowRef, watch } from 'vue';
 
-import { useDebounceFn } from '@vueuse/core';
+import { get, useDebounceFn } from '@vueuse/core';
 
-import { useRumExploreStore } from '../../../store/modules/rum-explore';
 import {
   DEFAULT_COLUMN_WIDTH,
-  RUM_COLUMN_CONFIG_KEY,
+  DEFAULT_MIN_COLUMN_WIDTH,
   RUM_COLUMN_WIDTH_MAP,
   RUM_SORTABLE_FIELD_TYPES,
 } from '../constants';
@@ -56,44 +55,21 @@ interface IRumColumnConfigCache {
 }
 
 /**
- * 列配置集中管理 hook：统管列的显隐/顺序、列宽覆盖，并持久化到用户常驻配置。
- * 同时负责推导「可作为列的字段全集」与「当前 span 类型的默认列」。
- *
- * 设计参考 alarm-center/use-table-columns：将原始存储归一化为单一 columnConfigCache，
- * 并按有效字段键校验裁剪，避免脏字段/失效缓存渲染出错。
- *
- * 展示列派生规则：
- * - 指定 span 类型：直接展示该类型默认列（span_type_display_fields[type]），忽略用户缓存，且不允许设置列；
- * - 全部（spanType 为空）：用户缓存列 > 接口默认列（viewConfig.display_fields）。
- * 列宽与展示列的持久化仅在「全部」场景下生效（指定类型时列由类型决定、不落盘）。
+ * @description 列配置集中管理 hook：统管列的显隐/顺序、列宽覆盖，并持久化到用户常驻配置。
+ * @param {MaybeRef<string>} opts.cacheKey 列缓存 key，空串表示未就绪、跳过读取
+ * @param {MaybeRef<string[]>} opts.overrideDisplayFields 受控展示列，非空数组即「受控态」，使用该列表作为展示列并锁定编辑/持久化
+ * @param {Ref<IRumViewConfig>} opts.viewConfig 字段全集与接口默认列，用于校验与兜底
  */
 export function useRumColumnConfig(opts: {
-  /** 缓存 key，默认 RUM_COLUMN_CONFIG_KEY */
-  cacheKey?: string;
-  /** 视图配置：用于推导可作为列的字段全集与当前类型的默认列 */
+  /** 列缓存 key，空串表示未就绪、跳过读取 */
+  cacheKey: MaybeRef<string>;
+  /** 受控展示列，非空数组即受控态 */
+  overrideDisplayFields: MaybeRef<string[]>;
+  /** 字段全集与接口默认列 */
   viewConfig: Ref<IRumViewConfig>;
 }) {
-  const cacheKey = opts.cacheKey ?? RUM_COLUMN_CONFIG_KEY;
-  const store = useRumExploreStore();
+  const { cacheKey, viewConfig, overrideDisplayFields } = opts;
   const { handleGetUserConfig, handleSetUserConfig } = useUserConfig();
-
-  /** 可作为列的字段全集，供字段设置使用 */
-  const displayableFields = computed(() => opts.viewConfig.value.fields.filter(field => field.can_displayed));
-
-  /** 字段名 -> 字段元数据；同时承担「有效字段集合」的校验职责 */
-  const fieldMap = computed(() => new Map(displayableFields.value.map(field => [field.name, field])));
-
-  /** 是否显示列设置：指定 span 类型时列由类型决定、忽略缓存，不允许用户设置 */
-  const showSettings = computed(() => !store.spanType);
-
-  /** 当前 span 类型对应的默认列（仅 span 视图、指定类型时有值） */
-  const spanTypeDisplayFields = computed<string[]>(() => {
-    if (!store.spanType) return [];
-    return opts.viewConfig.value.span_type_display_fields?.[store.spanType] ?? [];
-  });
-
-  /** 接口默认展示列（全部场景的兜底） */
-  const defaultDisplayFields = computed(() => opts.viewConfig.value.display_fields);
 
   /** 归一化后的缓存配置（始终为 IRumColumnConfigCache，按有效字段裁剪、版本失效回退默认） */
   const columnConfigCache = shallowRef<IRumColumnConfigCache>({
@@ -102,13 +78,20 @@ export function useRumColumnConfig(opts: {
     version: RUM_COLUMN_CONFIG_VERSION,
   });
 
-  /** 用户缓存的展示列（仅「全部」场景生效，可被接口默认列兜底；已按有效字段裁剪） */
-  const storageColumns = computed<string[]>({
+  /** 可作为列的字段全集，供字段设置使用 */
+  const displayableFields = computed(() => get(viewConfig).fields.filter(field => field.can_displayed));
+  /** 字段名 -> 字段元数据；同时承担「有效字段集合」的校验职责 */
+  const fieldMap = computed(() => new Map(displayableFields.value.map(field => [field.name, field])));
+  /** 是否处于非受控态；overrideDisplayFields 为空数组时用户可自由设置列 */
+  const isControlled = computed(() => !get(overrideDisplayFields)?.length);
+  /** 用户缓存的展示列；非受控态下可被接口默认列兜底 */
+  const cachedDisplayFields = computed<string[]>({
     get: () => {
       const cached = columnConfigCache.value.displayFields;
-      const result = cached?.length ? cached : defaultDisplayFields.value;
+      const result = cached?.length ? cached : get(viewConfig).display_fields;
       return result.filter(name => fieldMap.value.has(name));
     },
+    /** 写入时按有效字段裁剪并触发防抖保存 */
     set: (val: string[]) => {
       columnConfigCache.value = {
         ...columnConfigCache.value,
@@ -117,14 +100,15 @@ export function useRumColumnConfig(opts: {
       saveColumnConfig();
     },
   });
-
-  /** 列宽覆盖（已按有效字段裁剪掉不存在的列） */
+  /** 列宽覆盖（已按有效字段裁剪） */
   const fieldsWidthConfig = computed<Record<string, number>>({
     get: () => {
       const stored = columnConfigCache.value.columnResizeWidth ?? {};
       return Object.fromEntries(Object.entries(stored).filter(([key]) => fieldMap.value.has(key)));
     },
+    /** 写入时合并到现有覆盖并触发防抖保存；受控态下忽略 */
     set: (val: Record<string, number>) => {
+      if (isControlled.value) return;
       columnConfigCache.value = {
         ...columnConfigCache.value,
         columnResizeWidth: { ...fieldsWidthConfig.value, ...val },
@@ -135,15 +119,15 @@ export function useRumColumnConfig(opts: {
 
   /** 生效的展示列（渲染与收藏使用） */
   const displayFields = computed<string[]>(() => {
-    if (store.spanType) {
-      // 指定类型：直接展示该类型默认列，不考虑用户缓存
-      return spanTypeDisplayFields.value;
+    if (isControlled.value) {
+      // 非受控态：用户缓存列 > 接口默认列
+      return cachedDisplayFields.value;
     }
-    // 全部：用户缓存列 > 接口默认列
-    return storageColumns.value;
+    // 受控态：直接展示外部指定的列（按有效字段校验裁剪），忽略用户缓存
+    return get(overrideDisplayFields).filter(name => fieldMap.value.has(name));
   });
 
-  /** 基础列配置：展示列 -> 列宽（列宽覆盖优先）-> 排序等元数据 */
+  /** 基础列配置：展示列 -> 列宽（列宽覆盖优先于常量默认值）-> 排序等元数据 */
   const baseColumns = computed<BaseTableColumn[]>(() =>
     displayFields.value
       .map(name => fieldMap.value.get(name))
@@ -151,56 +135,87 @@ export function useRumColumnConfig(opts: {
       .map(field => ({
         colKey: field.name,
         width: fieldsWidthConfig.value[field.name] ?? RUM_COLUMN_WIDTH_MAP[field.name] ?? DEFAULT_COLUMN_WIDTH,
-        minWidth: 100,
+        minWidth: DEFAULT_MIN_COLUMN_WIDTH,
         resizable: true,
         sorter: RUM_SORTABLE_FIELD_TYPES.has(field.type),
       }))
   );
 
   /**
-   * 防抖保存列配置到用户常驻配置。
-   * 仅在允许用户设置列时真正落盘（指定 span 类型时跳过）。
+   * @description 更新展示列
+   * @param {string[]} fields 新的字段名顺序
    */
-  const saveColumnConfig = useDebounceFn(() => {
-    if (!showSettings.value) return;
-    handleSetUserConfig(JSON.stringify(columnConfigCache.value));
-  }, 300);
-
   function updateDisplayFields(fields: string[]) {
-    storageColumns.value = fields;
+    cachedDisplayFields.value = fields;
   }
 
+  /**
+   * @description 更新列宽覆盖
+   * @param {Record<string, number>} width colKey -> 宽度映射
+   */
   function updateColumnResizeWidth(width: Record<string, number>) {
     fieldsWidthConfig.value = width;
   }
 
+  /** 防抖保存列配置；仅非受控态真正落盘 */
+  const saveColumnConfig = useDebounceFn(() => {
+    if (isControlled.value) return;
+    handleSetUserConfig(JSON.stringify(columnConfigCache.value));
+  }, 300);
+
+  /**
+   * @description 从用户常驻配置加载列配置
+   */
   async function loadColumnConfig() {
+    // 缓存 key 未就绪（空串）时跳过读取；待 key 就绪后 watch 会重新触发加载
+    if (!get(cacheKey)) return;
     let cached: IRumColumnConfigCache | undefined;
     try {
-      cached = await handleGetUserConfig<IRumColumnConfigCache>(cacheKey);
+      cached = await handleGetUserConfig<IRumColumnConfigCache>(get(cacheKey));
     } catch {
       cached = undefined;
     }
     // 版本不匹配或无有效缓存：丢弃并回退默认，待用户操作后再落盘
     const isVersionValid = cached?.version === RUM_COLUMN_CONFIG_VERSION;
-    if (isVersionValid && cached?.displayFields?.length) {
+    if (isVersionValid) {
       columnConfigCache.value = {
-        displayFields: cached.displayFields,
+        displayFields: cached.displayFields ?? [],
         columnResizeWidth: cached.columnResizeWidth ?? {},
         version: RUM_COLUMN_CONFIG_VERSION,
       };
     }
   }
 
+  /** 缓存 key 变化时重置并重新加载配置 */
+  watch(
+    () => get(cacheKey),
+    () => {
+      columnConfigCache.value = {
+        displayFields: [],
+        columnResizeWidth: {},
+        version: RUM_COLUMN_CONFIG_VERSION,
+      };
+      loadColumnConfig();
+    },
+    { immediate: true }
+  );
+
   return {
+    /** 生效的展示列 */
     displayFields,
+    /** 列宽覆盖映射 */
     columnResizeWidth: fieldsWidthConfig,
+    /** 表格基础列配置 */
     baseColumns,
+    /** 可作为列的字段全集 */
     displayableFields,
-    spanTypeDisplayFields,
-    showSettings,
+    /** 字段名 -> 字段元数据 */
+    fieldMap,
+    /** 更新展示列 */
     updateDisplayFields,
+    /** 更新列宽覆盖 */
     updateColumnResizeWidth,
+    /** 手动重新加载列配置 */
     loadColumnConfig,
   };
 }
