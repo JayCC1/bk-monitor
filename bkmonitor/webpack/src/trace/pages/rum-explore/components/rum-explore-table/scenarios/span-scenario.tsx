@@ -28,12 +28,9 @@ import { get } from '@vueuse/core';
 
 import {
   type BaseTableColumn,
-  type TableCellRenderContext,
-  type TableCellRenderer,
   ExploreTableColumnTypeEnum,
 } from '../../../../trace-explore/components/trace-explore-table/typing';
 import {
-  DURATION_COLOR_THRESHOLDS,
   RUM_DURATION_FIELD_UNITS,
   RUM_LINK_FIELDS,
   RUM_STATUS_CODE_MAP,
@@ -94,7 +91,7 @@ export class SpanScenario extends BaseScenario {
   }
 
   /**
-   * @description 场景元数据推导：Span 中单位为微秒（us）的字段按耗时渲染（三色着色）
+   * @description 场景元数据推导：Span 中单位为 us / ms 的字段按内置耗时列渲染（自适应单位格式化）
    * @param {string} colKey 列键
    * @returns 声明式列配置（仅渲染/交互相关）
    */
@@ -103,33 +100,13 @@ export class SpanScenario extends BaseScenario {
     const unit = field?.field_unit;
     if (unit && RUM_DURATION_FIELD_UNITS.has(unit)) {
       return {
-        cellRenderer: this.renderDurationCell,
-        // 将字段原始单位透传给 duration 单元格渲染器，使其按正确量纲格式化与着色
+        renderType: ExploreTableColumnTypeEnum.DURATION,
+        // 将字段原始单位透传给 duration 单元格渲染器，使其按正确量纲格式化
         cellSpecificProps: { durationUnit: unit },
       };
     }
     return {};
   }
-
-  // ----------------- Span 场景私有渲染方法 -----------------
-  /**
-   * @description Span 耗时单元格渲染：复用内置 DURATION 格式化（阈值/单位），再按自身耗时阈值套用三色主题
-   */
-  renderDurationCell: TableCellRenderer = (row, column: BaseTableColumn, renderCtx: TableCellRenderContext) => {
-    const inner = renderCtx?.cellRenderHandleMap?.[ExploreTableColumnTypeEnum.DURATION]?.(row, column, renderCtx);
-    const value = (row as Record<string, unknown>)?.[column.colKey];
-    if (value == null || value === '') return inner;
-    // 阈值量纲为微秒，需按字段单位换算后再比对颜色（ms 字段需 * 1000）
-    const unit = column?.cellSpecificProps?.durationUnit ?? 'us';
-    const microseconds = unit === 'ms' ? Number(value) * 1000 : Number(value);
-    let theme = 'normal';
-    if (microseconds >= DURATION_COLOR_THRESHOLDS.warning) {
-      theme = 'failed';
-    } else if (microseconds >= DURATION_COLOR_THRESHOLDS.normal) {
-      theme = 'warning';
-    }
-    return (<span class={['custom-duration-col', `is-${theme}`]}>{inner}</span>) as unknown as SlotReturnValue;
-  };
 
   // ----------------- Span 场景私有逻辑方法 -----------------
 
