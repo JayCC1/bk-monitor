@@ -1,0 +1,94 @@
+.rum-collapse-array-col {
+  --rum-collapse-array-accent-color: #f239c1;
+
+  // 间距移交 item-tags 的右内边距，让 hover 下划线连成一条
+  column-gap: 0;
+
+  // 单行显示；下划线用透明 border 占位，避免 hover 时行高抖动
+  .item-tags {
+    flex-wrap: nowrap;
+    border-bottom: 0.5px solid transparent;
+
+    .collapse-array-value-item {
+      display: inline-flex;
+      column-gap: 4px;
+      align-items: center;
+
+      .collapse-array-value-sep {
+        font-size: 12px;
+        line-height: 20px;
+        color: var(--rum-collapse-array-accent-color);
+      }
+
+      .collapse-array-value-text {
+        font-size: 12px;
+        line-height: 20px;
+        color: #4d4f56;
+        white-space: nowrap;
+      }
+    }
+  }
+
+  // [+N] 去掉默认 tag 造型改为纯文本；同时作用于隐藏测量层 .collapse-tag-fill，
+  // 必须一致，否则测量宽度多算 padding 会少显一项
+  .collapse-tag {
+    padding: 0;
+    font-size: 12px;
+    line-height: 20px;
+    color: var(--rum-collapse-array-accent-color);
+    background: transparent;
+    border-bottom: 0.5px solid transparent;
+    border-radius: 0;
+  }
+
+  // hover 单元格时，内容行与 [+N] 下方显示下划线
+  &:has(.item-tags:hover),
+  &:has(.collapse-tag:hover) {
+    cursor: pointer;
+
+    .item-tags {
+      border-bottom-color: #4d4f56;
+    }
+
+    .collapse-tag {
+      border-bottom-color: #4d4f56;
+    }
+  }
+
+  // 有可见 [+N] 且本行渲染了值项时才补右内边距。
+  // 特异性高于上面 hover 内的 .item-tags，必须放在其后（no-descending-specificity）
+  .item-tags:has(+ .collapse-tag-visible):has(.collapse-array-value-item) {
+    padding-right: var(--tag-col-gap);
+  }
+}
+
+.tippy-box[data-theme~='rum-collapse-array-ellipsis-tip'] {
+  .ellipsis-tip-content {
+    display: flex;
+    flex-direction: column;
+    row-gap: 4px;
+
+    .ellipsis-tip-item {
+      display: flex;
+      line-height: 20px;
+
+      .item-prefix {
+        flex-shrink: 0;
+        padding-right: 6px;
+        padding-left: 2px;
+
+        .item-hyphen {
+          display: inline-block;
+          width: 6px;
+          height: 6px;
+          background: #fff;
+          border-radius: 50%;
+        }
+      }
+
+      .item-text {
+        word-break: break-all;
+      }
+    }
+  }
+}

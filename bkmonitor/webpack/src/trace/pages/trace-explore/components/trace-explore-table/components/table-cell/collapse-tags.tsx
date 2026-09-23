@@ -270,7 +270,7 @@ export default defineComponent({
         </span>
         {canShowCollapseTag && (
           <span
-            class='collapse-tag'
+            class='collapse-tag collapse-tag-visible'
             v-tippy={{
               content: this.ellipsisTip ? this.ellipsisTip(ellipsisList) : ellipsisList.join(','),
               theme: 'dark text-wrap max-width-50vw',
@@ -278,14 +278,16 @@ export default defineComponent({
               ...(this.ellipsisTippyOptions ?? {}),
             }}
           >
-            +{collapseCount}
+            {/* collapseTag 插槽：折叠标识文案，未传时回落 +N */}
+            {this.$slots?.collapseTag?.(collapseCount) ?? `+${collapseCount}`}
           </span>
         )}
+        {/* 测量层必须用同一个 collapseTag 渲染（传总数取宽度上界），否则测量宽度与实际展示不一致，可见项数量会算错 */}
         <span
           ref='maxCountCollectTagRef'
           class='collapse-tag collapse-tag-fill'
         >
-          +{dataLen}
+          {this.$slots?.collapseTag?.(dataLen) ?? `+${dataLen}`}
         </span>
       </span>
     );

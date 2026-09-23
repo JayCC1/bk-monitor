@@ -27,13 +27,14 @@
 import { get } from '@vueuse/core';
 import { hexToRgba } from 'monitor-common/utils/colorHelpers';
 
-import { formatDuration } from '../../../../../components/trace-view/utils/date';
+import { formatDuration, formatTraceTableDate } from '../../../../../components/trace-view/utils/date';
 import {
   type BaseTableColumn,
   type TableCellRenderContext,
   ExploreTableColumnTypeEnum,
 } from '../../../../trace-explore/components/trace-explore-table/typing';
 import {
+  EVENTS_FIELD_PREFIX,
   RUM_HTTP_STATUS_CODE_MAP,
   RUM_OUTCOME_TYPE_MAP,
   RUM_STATUS_CODE_MAP,
@@ -43,7 +44,9 @@ import {
   SPAN_TYPE_META,
 } from '../../../constants';
 import { formatUnitValue } from '../../../utils';
+import CollapseArrayCell from '../components/collapse-array-cell/collapse-array-cell';
 import { BaseScenario } from './base-scenario';
+import { TABLE_DEFAULT_CONFIG } from '@/pages/trace-explore/components/trace-explore-table/constants';
 
 import type { IUsePopoverTools } from '../../../../alarm-center/components/alarm-table/hooks/use-popover';
 import type { IRumSpanRecord } from '../../../typings';
@@ -120,12 +123,16 @@ export class SpanScenario extends BaseScenario {
   }
 
   /**
-   * @description 场景元数据推导：根据 field_display_type / field_unit 派发对应渲染类型
+   * @description 场景元数据推导：按列键与字段元数据（field_display_type / field_unit）派发渲染语义
+   * - events.* → 折叠数组单元格（非数组值按单项处理）
    * - datetime → 时间列
    * - duration → 耗时列（透传原始单位供 formatDuration 量纲换算）
    * - 其余带 field_unit 的字段 → 按单位自适应换算展示（复用图表的 getValueFormat 量纲表）
    */
   protected buildBaseline(colKey: string): Partial<BaseTableColumn> {
+    /** 仅 events.* 下的属性可能是数组，统一走数组单元格；非数组值按「单项数组」处理，同列展示形态保持一致 */
+    if (colKey.startsWith(EVENTS_FIELD_PREFIX)) return this.withCollapseArrayCellRenderer(colKey);
+
     const field = get(this.context.fieldMap).get(colKey);
     /**
      * 指标值列（attributes.vital.value）特殊处理。
@@ -166,6 +173,69 @@ export class SpanScenario extends BaseScenario {
   }
 
   // ----------------- Span 场景私有逻辑方法 -----------------
+
+  /**
+   * @description events.* 列的折叠数组单元格渲染：值统一按数组处理（非数组值视为单项），按「值 , 值 +N」展示，
+   *              超出列宽的项折叠为 +N，hover +N 以换行列表展示剩余值。
+   *              「是否数组」只能按行运行时判定（字段元数据未提供数组标识），而列配置解析是列级一次性的，
+   *              故统一声明 cellRenderer 在渲染时取值；cellRenderer 优先级高于 renderType，无需显式清空后者。
+   *              该列不挂单元格条件菜单类名：events.* 列暂不提供「加为检索条件」，待使用反馈后再评估。
+   * @param {string} colKey 列键
+   * @returns {Partial<BaseTableColumn>} 数组单元格列配置
+   */
+  private withCollapseArrayCellRenderer(colKey: string): Partial<BaseTableColumn> {
+    const formatter = this.resolveArrayItemFormatter(colKey);
+    return {
+      cellRenderer: row => {
+        const value = row?.[colKey];
+        /** 非数组值按单项处理，使同一列内单值行与数组行的展示形态一致 */
+        const list = Array.isArray(value) ? value : [value];
+        /** 空数组 / 空值统一展示空占位符：CollapseTags 无数据时不渲染任何节点，会留下空白单元格 */
+        const values = list.length
+          ? list.map(item => this.formatArrayItem(item, formatter))
+          : [TABLE_DEFAULT_CONFIG.tableConfig.emptyPlaceholder];
+        return (<CollapseArrayCell values={values} />) as unknown as SlotReturnValue;
+      },
+    };
+  }
+
+  /**
+   * @description 数组项格式化器：按字段语义推导逐项格式化方法，使 events.timestamp 的每一项都是
+   *              格式化后的日期时间、带单位字段的每一项都带单位，避免数组样式下退化成原始数值。
+   * @param {string} colKey 列键
+   * @returns {(value: unknown) => string} 单项格式化方法（仅处理非空值，空值由 formatArrayItem 统一兜底）
+   */
+  private resolveArrayItemFormatter(colKey: string): (value: unknown) => string {
+    const field = get(this.context.fieldMap).get(colKey);
+    const unit = field?.field_unit;
+    switch (field?.field_display_type) {
+      case RumFieldDisplayEnum.DATETIME:
+        /** formatTraceTableDate 按值的字符串长度自适应时间单位，转 Number 会丢精度，故透传原值 */
+        return value => formatTraceTableDate(value as number | string);
+      case RumFieldDisplayEnum.DURATION:
+        return value => formatDuration(Number(value), '', 2, (unit as 'ms' | 'us') ?? 'us');
+      default:
+        if (unit) return value => formatUnitValue(value, unit);
+        /** 与默认取值逻辑保持一致：结构化值序列化为文本，标量值优先取后台声明的枚举别名 */
+        return value =>
+          typeof value === 'object'
+            ? JSON.stringify(value)
+            : (this.getFieldOptionAlias(colKey, value) ?? String(value));
+    }
+  }
+
+  /**
+   * @description 数组项取值：空洞项统一展示为空占位符，避免出现 null / undefined 字面量
+   * @param {unknown} value 数组项原始值
+   * @param {(value: unknown) => string} formatter 按字段语义推导出的格式化方法
+   * @returns {string} 数组项展示文本
+   */
+  private formatArrayItem(value: unknown, formatter: (value: unknown) => string): string {
+    if (value === null || value === undefined || value === '') {
+      return TABLE_DEFAULT_CONFIG.tableConfig.emptyPlaceholder;
+    }
+    return formatter(value);
+  }
 
   /**
    * @description span_name 列单元格渲染：保留 CLICK 列「点击加为检索条件」的结构与交互（含右键条件菜单），
@@ -352,19 +422,20 @@ export class SpanScenario extends BaseScenario {
 
   /**
    * @description 错误类型列渲染值：红色主题 Tag（无映射，原始字符串直接展示）
-   * @param {unknown} value 当前行错误类型值（如 'TypeError'）
+   *              该列同属 events.*，值可能是数组（一条 span 携带多个异常事件），此时逐项渲染为独立 Tag；
+   *              TAGS 列本身走 CollapseTags，故溢出折叠与 +N 提示无需额外处理。
+   * @param {unknown} value 当前行错误类型值（如 'TypeError'，或 ['TypeError', 'RangeError']）
    */
   private getExceptionTypeRenderValue(value: unknown) {
-    return value
-      ? [
-          {
-            alias: String(value),
-            tagBgColor: '#FDE7E7',
-            tagColor: '#EA3636',
-            tagHoverBgColor: hexToRgba('#FDE7E7', 0.8),
-            tagHoverColor: hexToRgba('#EA3636', 0.8),
-          },
-        ]
-      : [];
+    const list = Array.isArray(value) ? value : [value];
+    return list
+      .filter(item => item !== null && item !== undefined && item !== '')
+      .map(item => ({
+        alias: String(item),
+        tagBgColor: '#FDE7E7',
+        tagColor: '#EA3636',
+        tagHoverBgColor: hexToRgba('#FDE7E7', 0.8),
+        tagHoverColor: hexToRgba('#EA3636', 0.8),
+      }));
   }
 }
