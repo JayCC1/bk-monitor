@@ -27,14 +27,18 @@
 import { get } from '@vueuse/core';
 import { hexToRgba } from 'monitor-common/utils/colorHelpers';
 
-import { formatDuration } from '../../../../../components/trace-view/utils/date';
-import { ENABLED_TABLE_CONDITION_MENU_CLASS_NAME } from '../../../../trace-explore/components/trace-explore-table/constants';
+import { formatDuration, formatTraceTableDate } from '../../../../../components/trace-view/utils/date';
+import {
+  ENABLED_TABLE_CONDITION_MENU_CLASS_NAME,
+  TABLE_DEFAULT_CONFIG,
+} from '../../../../trace-explore/components/trace-explore-table/constants';
 import {
   type BaseTableColumn,
   type TableCellRenderContext,
   ExploreTableColumnTypeEnum,
 } from '../../../../trace-explore/components/trace-explore-table/typing';
 import {
+  EVENTS_FIELD_PREFIX,
   RUM_DETAIL_SPAN_TYPES,
   RUM_HTTP_STATUS_CODE_MAP,
   RUM_OUTCOME_TYPE_MAP,
@@ -45,6 +49,7 @@ import {
   SPAN_TYPE_META,
 } from '../../../constants';
 import { formatUnitValue } from '../../../utils';
+import ArrayCell from '../components/array-cell/array-cell';
 import { BaseScenario } from './base-scenario';
 
 import type { IUsePopoverTools } from '../../../../alarm-center/components/alarm-table/hooks/use-popover';
@@ -125,12 +130,22 @@ export class SpanScenario extends BaseScenario {
   }
 
   /**
-   * @description 场景元数据推导：根据 field_display_type / field_unit 派发对应渲染类型
+   * @description 场景元数据推导：先按字段元数据推导单值渲染语义，再对 events.* 列叠加数组渲染分流
+   */
+  protected buildBaseline(colKey: string): Partial<BaseTableColumn> {
+    const baseline = this.buildFieldBaseline(colKey);
+    /** 仅 events.* 下的属性可能是数组，其余列保持原有单值渲染（含结构化值的 JSON 序列化兜底） */
+    if (!colKey.startsWith(EVENTS_FIELD_PREFIX)) return baseline;
+    return this.withArrayCellRenderer(colKey, baseline);
+  }
+
+  /**
+   * @description 单值渲染语义推导：根据 field_display_type / field_unit 派发对应渲染类型
    * - datetime → 时间列
    * - duration → 耗时列（透传原始单位供 formatDuration 量纲换算）
    * - 其余带 field_unit 的字段 → 按单位自适应换算展示（复用图表的 getValueFormat 量纲表）
    */
-  protected buildBaseline(colKey: string): Partial<BaseTableColumn> {
+  private buildFieldBaseline(colKey: string): Partial<BaseTableColumn> {
     const field = get(this.context.fieldMap).get(colKey);
     /**
      * 指标值列（attributes.vital.value）特殊处理。
@@ -168,6 +183,76 @@ export class SpanScenario extends BaseScenario {
         return { getRenderValue: row => formatUnitValue(row[colKey], unit) };
       }
     }
+  }
+
+  /**
+   * @description 为 events.* 列叠加数组渲染：值为数组时按「值 , 值 +N」展示，否则回落基线推导的单值渲染。
+   *              「是否数组」只能按行运行时判定（字段元数据未提供数组标识），而列配置解析是列级一次性的，
+   *              故统一声明 cellRenderer 在渲染时分流；cellRenderer 与 renderType 互斥，需显式清空后者。
+   * @param {string} colKey 列键
+   * @param {Partial<BaseTableColumn>} baseline 基线推导出的单值渲染配置
+   * @returns {Partial<BaseTableColumn>} 叠加数组渲染后的列配置
+   */
+  private withArrayCellRenderer(colKey: string, baseline: Partial<BaseTableColumn>): Partial<BaseTableColumn> {
+    /** 非数组值的回落渲染类型，需在清空 renderType 前取出 */
+    const fallbackRenderType = baseline.renderType ?? ExploreTableColumnTypeEnum.TEXT;
+    return {
+      ...baseline,
+      renderType: undefined,
+      cellRenderer: (row, column, renderCtx) => {
+        const value = row?.[colKey];
+        /** 单值保持改动前的行为（含 getRenderValue / cellSpecificProps 等基线配置，均随 column 透传） */
+        if (!Array.isArray(value)) {
+          return renderCtx.cellRenderHandleMap[fallbackRenderType]?.(row, column, renderCtx);
+        }
+        /** 空数组交给 TEXT 渲染空占位符：CollapseTags 无数据时不渲染任何节点，会留下空白单元格 */
+        if (!value.length) {
+          return renderCtx.cellRenderHandleMap[ExploreTableColumnTypeEnum.TEXT]?.(
+            row,
+            { ...column, getRenderValue: () => '' },
+            renderCtx
+          );
+        }
+        const formatter = this.resolveArrayItemFormatter(colKey);
+        return (
+          <ArrayCell values={value.map(item => this.formatArrayItem(item, formatter))} />
+        ) as unknown as SlotReturnValue;
+      },
+    };
+  }
+
+  /**
+   * @description 数组项格式化器：复用基线的单值格式化语义逐项套用，使 events.timestamp 的每一项都是
+   *              格式化后的日期时间、带单位字段的每一项都带单位，避免数组样式下退化成原始数值。
+   * @param {string} colKey 列键
+   * @returns {(value: unknown) => string} 单项格式化方法（仅处理非空值，空值由 formatArrayItem 统一兜底）
+   */
+  private resolveArrayItemFormatter(colKey: string): (value: unknown) => string {
+    const field = get(this.context.fieldMap).get(colKey);
+    const unit = field?.field_unit;
+    switch (field?.field_display_type) {
+      case RumFieldDisplayEnum.DATETIME:
+        /** formatTraceTableDate 按值的字符串长度自适应时间单位，转 Number 会丢精度，故透传原值 */
+        return value => formatTraceTableDate(value as number | string);
+      case RumFieldDisplayEnum.DURATION:
+        return value => formatDuration(Number(value), '', 2, (unit as 'ms' | 'us') ?? 'us');
+      default:
+        if (unit) return value => formatUnitValue(value, unit);
+        return value => (typeof value === 'object' ? JSON.stringify(value) : String(value));
+    }
+  }
+
+  /**
+   * @description 数组项取值：空洞项统一展示为空占位符，避免出现 null / undefined 字面量
+   * @param {unknown} value 数组项原始值
+   * @param {(value: unknown) => string} formatter 按字段语义推导出的格式化方法
+   * @returns {string} 数组项展示文本
+   */
+  private formatArrayItem(value: unknown, formatter: (value: unknown) => string): string {
+    if (value === null || value === undefined || value === '') {
+      return TABLE_DEFAULT_CONFIG.tableConfig.emptyPlaceholder;
+    }
+    return formatter(value);
   }
 
   // ----------------- Span 场景私有逻辑方法 -----------------
@@ -401,19 +486,20 @@ export class SpanScenario extends BaseScenario {
 
   /**
    * @description 错误类型列渲染值：红色主题 Tag（无映射，原始字符串直接展示）
-   * @param {unknown} value 当前行错误类型值（如 'TypeError'）
+   *              该列同属 events.*，值可能是数组（一条 span 携带多个异常事件），此时逐项渲染为独立 Tag；
+   *              TAGS 列本身走 CollapseTags，故溢出折叠与 +N 提示无需额外处理。
+   * @param {unknown} value 当前行错误类型值（如 'TypeError'，或 ['TypeError', 'RangeError']）
    */
   private getExceptionTypeRenderValue(value: unknown) {
-    return value
-      ? [
-          {
-            alias: String(value),
-            tagBgColor: '#FDE7E7',
-            tagColor: '#EA3636',
-            tagHoverBgColor: hexToRgba('#FDE7E7', 0.8),
-            tagHoverColor: hexToRgba('#EA3636', 0.8),
-          },
-        ]
-      : [];
+    const list = Array.isArray(value) ? value : [value];
+    return list
+      .filter(item => item !== null && item !== undefined && item !== '')
+      .map(item => ({
+        alias: String(item),
+        tagBgColor: '#FDE7E7',
+        tagColor: '#EA3636',
+        tagHoverBgColor: hexToRgba('#FDE7E7', 0.8),
+        tagHoverColor: hexToRgba('#EA3636', 0.8),
+      }));
   }
 }

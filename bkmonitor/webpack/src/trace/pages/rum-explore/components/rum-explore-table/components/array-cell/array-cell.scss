@@ -1,0 +1,50 @@
+// 数组分隔符与折叠标识的颜色，取自设计稿语义变量 Array(#F239C1)。
+// 该色是否为最终 UI 色仍待设计确认，故抽为变量便于单点替换。
+$array-accent-color: #f239c1;
+
+.rum-array-col {
+  --rum-array-accent-color: #{$array-accent-color};
+
+  // 数组是单行语义，覆盖 collapse-tags 默认的多行换行
+  .item-tags {
+    flex-wrap: nowrap;
+  }
+
+  .array-value-item {
+    display: inline-flex;
+    column-gap: 4px;
+    align-items: center;
+  }
+
+  .array-value-text {
+    font-size: 12px;
+    line-height: 20px;
+    color: #4d4f56;
+  }
+
+  .array-value-sep {
+    font-size: 12px;
+    line-height: 20px;
+    color: var(--rum-array-accent-color);
+  }
+
+  // 折叠标识去掉 collapse-tags 的灰底 tag 造型，改为设计稿的纯文本样式。
+  // 该覆盖同时作用于隐藏测量层 .collapse-tag-fill（同类名），
+  // 这是必需的：否则测量宽度会多算左右 padding，导致可见项少显一项。
+  .collapse-tag {
+    padding: 0;
+    font-size: 12px;
+    line-height: 20px;
+    color: var(--rum-array-accent-color);
+    background: transparent;
+    border-radius: 0;
+  }
+}
+
+// +N 的溢出提示内容挂载在 body 下的 tippy 容器中，故此处不能嵌在 .rum-array-col 内
+.rum-array-ellipsis-tip {
+  .ellipsis-tip-item {
+    line-height: 20px;
+    word-break: break-all;
+  }
+}

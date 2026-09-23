@@ -79,6 +79,13 @@ export const ALL_SPAN_TYPE = '';
 /** span 类型对应的字段名，快捷筛选与按类型切列都基于它 */
 export const SPAN_TYPE_FIELD = 'attributes.span_type';
 
+/**
+ * events 字段前缀。该前缀下的属性值可能是数组（一条 span 携带多个同名事件属性），
+ * 需按「值 , 值 +N」的数组样式渲染而非 JSON 序列化。
+ * 字段元数据未提供数组标识，故只作为前缀筛选，实际是否为数组仍需运行时判定。
+ */
+export const EVENTS_FIELD_PREFIX = 'events.';
+
 /** 表格滚动加载每页条数 */
 export const RUM_TABLE_PAGE_LIMIT = 30;
 
