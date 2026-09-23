@@ -41,11 +41,10 @@
     border-radius: 0;
   }
 
-  // hover 单元格时，内容行与 [+N] 下方显示下划线
+  // hover 内容行与 [+N] 时显示下划线；cursor 不由本组件声明：
+  // 点击由外层触发容器赋予，命中区也随之由它界定（见 theme/span-table-theme.scss）
   &:has(.item-tags:hover),
   &:has(.collapse-tag:hover) {
-    cursor: pointer;
-
     .item-tags {
       border-bottom-color: #4d4f56;
     }

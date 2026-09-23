@@ -18,6 +18,20 @@
     cursor: pointer;
   }
 
+  /* 折叠数组列只有内容区可点：容器放弃命中，由值行与 [+N]（宽度均贴合内容）恢复。
+   * 不能改用 fit-content 收窄容器：CollapseTags 溢出测量取 .item-tags 的 parentNode 宽度，
+   * 容器退化为内容宽度后 +N 永不出现。
+   */
+  .rum-array-col-trigger:has(.rum-collapse-array-col) {
+    pointer-events: none;
+
+    .item-tags,
+    .collapse-tag-visible {
+      pointer-events: auto;
+      cursor: pointer;
+    }
+  }
+
   .explore-col {
     &.explore-prefix-icon-col {
       &:has([data-col-id='attributes.span_type']) {
