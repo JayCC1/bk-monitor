@@ -27,7 +27,7 @@
 import { get } from '@vueuse/core';
 import { hexToRgba } from 'monitor-common/utils/colorHelpers';
 
-import { formatDuration, formatTraceTableDate } from '../../../../../components/trace-view/utils/date';
+import { formatDuration } from '../../../../../components/trace-view/utils/date';
 import {
   type BaseTableColumn,
   type TableCellRenderContext,
@@ -43,10 +43,14 @@ import {
   SPAN_TYPE_FIELD,
   SPAN_TYPE_META,
 } from '../../../constants';
-import { formatUnitValue } from '../../../utils';
+import {
+  ARRAY_ITEM_EMPTY_PLACEHOLDER,
+  formatArrayItem,
+  formatUnitValue,
+  resolveArrayItemFormatter,
+} from '../../../utils';
 import CollapseArrayCell from '../components/collapse-array-cell/collapse-array-cell';
 import { BaseScenario } from './base-scenario';
-import { TABLE_DEFAULT_CONFIG } from '@/pages/trace-explore/components/trace-explore-table/constants';
 
 import type { IUsePopoverTools } from '../../../../alarm-center/components/alarm-table/hooks/use-popover';
 import type { IRumSpanRecord } from '../../../typings';
@@ -99,10 +103,20 @@ export class SpanScenario extends BaseScenario {
       renderType: ExploreTableColumnTypeEnum.PREFIX_ICON,
       getRenderValue: row => this.getCacheHitRenderValue(row['attributes.resource.cache.hit']),
     },
-    /** events.attributes.exception.type 列：异常类型（图标 + 异常类型） */
+    /**
+     * events.attributes.exception.type 列：异常类型（红色 Tag，多个异常事件逐项渲染）
+     * 该列同属 events.*，同样挂点击打开数组列表抽屉：TAGS 渲染由 cellRenderer 包一层转发，
+     * renderType / getRenderValue 一并保留，供包层内回落到内置 TAGS 渲染器取值。
+     */
     'events.attributes.exception.type': {
       renderType: ExploreTableColumnTypeEnum.TAGS,
       getRenderValue: row => this.getExceptionTypeRenderValue(row['events.attributes.exception.type']),
+      cellRenderer: (row, column, renderCtx) =>
+        this.renderArrayCellTrigger(
+          row,
+          column.colKey,
+          renderCtx.cellRenderHandleMap[ExploreTableColumnTypeEnum.TAGS]?.(row, column, renderCtx)
+        ),
     },
     /** attributes.outcome.type 列：结果状态（图标 + 状态文案） */
     'attributes.outcome.type': {
@@ -115,6 +129,8 @@ export class SpanScenario extends BaseScenario {
     protected readonly context: {
       /** span_name 列 hover 展示详情信息的 popover 工具 */
       hoverPopoverTools: IUsePopoverTools;
+      /** 点击 events.* 数组单元格，打开该行的数组列表抽屉 */
+      onArrayCellClick: (row: IRumSpanRecord, colKey: string) => void;
       /** 点击链接类单元格，把值加为检索条件 */
       onCellFilter: (colKey: string, value: string) => void;
     } & BaseScenario['context']
@@ -179,12 +195,13 @@ export class SpanScenario extends BaseScenario {
    *              超出列宽的项折叠为 +N，hover +N 以换行列表展示剩余值。
    *              「是否数组」只能按行运行时判定（字段元数据未提供数组标识），而列配置解析是列级一次性的，
    *              故统一声明 cellRenderer 在渲染时取值；cellRenderer 优先级高于 renderType，无需显式清空后者。
-   *              该列不挂单元格条件菜单类名：events.* 列暂不提供「加为检索条件」，待使用反馈后再评估。
+   *              该列不挂单元格条件菜单类名：events.* 列「加为检索条件」由点击打开数组列表抽屉替代。
    * @param {string} colKey 列键
    * @returns {Partial<BaseTableColumn>} 数组单元格列配置
    */
   private withCollapseArrayCellRenderer(colKey: string): Partial<BaseTableColumn> {
-    const formatter = this.resolveArrayItemFormatter(colKey);
+    /** 与主表单元格共用同一套格式化实现，避免抽屉与单元格展示漂移 */
+    const formatter = resolveArrayItemFormatter(get(this.context.fieldMap).get(colKey));
     return {
       cellRenderer: row => {
         const value = row?.[colKey];
@@ -192,49 +209,35 @@ export class SpanScenario extends BaseScenario {
         const list = Array.isArray(value) ? value : [value];
         /** 空数组 / 空值统一展示空占位符：CollapseTags 无数据时不渲染任何节点，会留下空白单元格 */
         const values = list.length
-          ? list.map(item => this.formatArrayItem(item, formatter))
-          : [TABLE_DEFAULT_CONFIG.tableConfig.emptyPlaceholder];
-        return (<CollapseArrayCell values={values} />) as unknown as SlotReturnValue;
+          ? list.map(item => formatArrayItem(item, formatter))
+          : [ARRAY_ITEM_EMPTY_PLACEHOLDER];
+        return this.renderArrayCellTrigger(
+          row,
+          colKey,
+          (<CollapseArrayCell values={values} />) as unknown as SlotReturnValue
+        );
       },
     };
   }
 
   /**
-   * @description 数组项格式化器：按字段语义推导逐项格式化方法，使 events.timestamp 的每一项都是
-   *              格式化后的日期时间、带单位字段的每一项都带单位，避免数组样式下退化成原始数值。
+   * @description events.* 列单元格的可点击容器：整格点击打开该行的数组列表抽屉。
+   *              容器按「撑满单元格且不改变原有单元格布局」的方式声明（见 theme/span-table-theme.scss），
+   *              避免多包一层影响 CollapseTags 基于父元素宽度的溢出测量。
+   * @param {IRumSpanRecord} row 当前行数据
    * @param {string} colKey 列键
-   * @returns {(value: unknown) => string} 单项格式化方法（仅处理非空值，空值由 formatArrayItem 统一兜底）
+   * @param {SlotReturnValue} content 单元格内容（数组单元格或内置 TAGS 渲染结果）
+   * @returns {SlotReturnValue} 可点击的单元格
    */
-  private resolveArrayItemFormatter(colKey: string): (value: unknown) => string {
-    const field = get(this.context.fieldMap).get(colKey);
-    const unit = field?.field_unit;
-    switch (field?.field_display_type) {
-      case RumFieldDisplayEnum.DATETIME:
-        /** formatTraceTableDate 按值的字符串长度自适应时间单位，转 Number 会丢精度，故透传原值 */
-        return value => formatTraceTableDate(value as number | string);
-      case RumFieldDisplayEnum.DURATION:
-        return value => formatDuration(Number(value), '', 2, (unit as 'ms' | 'us') ?? 'us');
-      default:
-        if (unit) return value => formatUnitValue(value, unit);
-        /** 与默认取值逻辑保持一致：结构化值序列化为文本，标量值优先取后台声明的枚举别名 */
-        return value =>
-          typeof value === 'object'
-            ? JSON.stringify(value)
-            : (this.getFieldOptionAlias(colKey, value) ?? String(value));
-    }
-  }
-
-  /**
-   * @description 数组项取值：空洞项统一展示为空占位符，避免出现 null / undefined 字面量
-   * @param {unknown} value 数组项原始值
-   * @param {(value: unknown) => string} formatter 按字段语义推导出的格式化方法
-   * @returns {string} 数组项展示文本
-   */
-  private formatArrayItem(value: unknown, formatter: (value: unknown) => string): string {
-    if (value === null || value === undefined || value === '') {
-      return TABLE_DEFAULT_CONFIG.tableConfig.emptyPlaceholder;
-    }
-    return formatter(value);
+  private renderArrayCellTrigger(row: IRumSpanRecord, colKey: string, content: SlotReturnValue): SlotReturnValue {
+    return (
+      <div
+        class='rum-array-col-trigger'
+        onClick={() => this.context.onArrayCellClick(row, colKey)}
+      >
+        {content}
+      </div>
+    ) as unknown as SlotReturnValue;
   }
 
   /**

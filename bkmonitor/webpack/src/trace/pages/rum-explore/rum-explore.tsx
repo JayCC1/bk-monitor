@@ -37,6 +37,7 @@ import { useRumExploreStore } from '../../store/modules/rum-explore';
 import FavoriteBox, { EditFavorite } from '../trace-explore/components/favorite-box';
 import TraceExploreLayout from '../trace-explore/components/trace-explore-layout';
 import { safeParseJsonValueForWhere } from '../trace-explore/utils';
+import RumArrayListDrawer from './components/rum-array-list-drawer';
 import RumDimensionPanel from './components/rum-dimension-panel';
 import RumExploreHeader from './components/rum-explore-header';
 import RumExploreTable from './components/rum-explore-table';
@@ -62,7 +63,7 @@ import { getApplicationList } from './services/rum-application';
 import EmptyStatus from '@/components/empty-status/empty-status';
 
 import type { ConditionChangeEvent } from '../trace-explore/typing';
-import type { IRumApplication, IRumColumnLayoutPreset } from './typings';
+import type { IRumApplication, IRumColumnLayoutPreset, IRumSpanRecord } from './typings';
 
 import './rum-explore.scss';
 
@@ -287,6 +288,26 @@ export default defineComponent({
       );
     }
 
+    /**
+     * 数组列表抽屉的当前目标：被点击的行与列键，null 表示未打开。
+     * 抽屉状态放在页面层而非表格内：抽屉贴结果面板底部、不随检索视图滚动，表格在滚动容器内。
+     */
+    const arrayListTarget = shallowRef<null | { colKey: string; row: IRumSpanRecord }>(null);
+
+    function handleArrayCellClick(target: { colKey: string; row: IRumSpanRecord }) {
+      arrayListTarget.value = target;
+    }
+
+    function closeArrayList() {
+      arrayListTarget.value = null;
+    }
+
+    /**
+     * 新检索后收起抽屉：backTopSignal 在查询条件 / 排序 / 时间范围 / 刷新变化时重新生成，
+     * 换应用与换视角同样会改写 commonParams，故一个信号即可覆盖全部「结果集被替换」的场景。
+     */
+    watch(() => tableCtx.backTopSignal.value, closeArrayList);
+
     function handleSortChange(sort: string | string[]) {
       tableCtx.handleSortChange(sort);
       queryCtx.setUrlParams();
@@ -335,6 +356,8 @@ export default defineComponent({
       store,
       applicationList,
       applicationLoading,
+      arrayListTarget,
+      closeArrayList,
       columnConfig,
       emptyType,
       layoutPreset,
@@ -355,6 +378,7 @@ export default defineComponent({
       getFieldValues,
       getResidentConfig,
       getResidentConfigCustom,
+      handleArrayCellClick,
       setResidentConfig,
       handleAppNameChange,
       handleConditionChange,
@@ -368,6 +392,8 @@ export default defineComponent({
   },
   render() {
     const { favoriteCtx, queryCtx, spanTypeCtx, tableCtx, viewConfigCtx } = this;
+    /** 数组列表抽屉的当前目标：渲染期取一次快照，供插槽内做非空判断与取值（this.xxx 已自动解包 ref） */
+    const arrayListTarget = this.arrayListTarget;
 
     return (
       <div class='rum-explore'>
@@ -518,6 +544,7 @@ export default defineComponent({
                               sort={tableCtx.sortParams.value}
                               timeRange={this.store.timeRange}
                               timezone={this.store.timezone}
+                              onArrayCellClick={this.handleArrayCellClick}
                               onClearFilter={queryCtx.clearQuery}
                               onColumnResizeChange={width => this.columnConfig.updateColumnResizeWidth(width)}
                               onConditionChange={this.handleConditionChange}
@@ -530,6 +557,16 @@ export default defineComponent({
                         backTopSignal={tableCtx.backTopSignal.value}
                         syncAffixOnResize={true}
                       />
+                      {/* 数组列表抽屉：与检索视图平级，贴结果面板底部，不随表格滚动 */}
+                      {arrayListTarget ? (
+                        <RumArrayListDrawer
+                          colKey={arrayListTarget.colKey}
+                          displayFieldKeys={this.columnConfig.displayFields.value}
+                          fields={this.columnConfig.displayableFields.value}
+                          row={arrayListTarget.row}
+                          onClose={this.closeArrayList}
+                        />
+                      ) : null}
                     </div>
                   ),
                 }}

@@ -48,6 +48,8 @@
   }
 
   .result-panel {
+    /* 数组列表抽屉贴本面板底部弹出，面板自身已 overflow: hidden，配合入场动画不会溢出 */
+    position: relative;
     display: flex;
     flex-direction: column;
     height: 100%;

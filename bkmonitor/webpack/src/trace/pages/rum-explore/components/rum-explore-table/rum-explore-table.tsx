@@ -146,6 +146,8 @@ export default defineComponent({
     },
   },
   emits: {
+    /** 点击 events.* 数组单元格，回传该行数据与列键，供上层打开数组列表抽屉 */
+    arrayCellClick: (_target: { colKey: string; row: IRumSpanRecord }) => true,
     /** 点击单元格筛选值或统计列表触发，回传检索条件 */
     conditionChange: (_condition: ConditionChangeEvent) => true,
     /** 字段设置变更，回传新的展示字段列表 */
@@ -195,6 +197,7 @@ export default defineComponent({
       {
         fieldMap,
         hoverPopoverTools,
+        onArrayCellClick: (row, colKey) => emit('arrayCellClick', { colKey, row }),
         onCellFilter: (colKey, value) => emit('conditionChange', { key: colKey, method: 'equal', value }),
         onFieldAnalysis: (trigger, field) => openPopover(trigger, field as unknown as IStatisticsFieldItem),
       }

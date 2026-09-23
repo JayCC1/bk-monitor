@@ -7,6 +7,17 @@
     }
   }
 
+  /* events.* 数组单元格的可点击容器：撑满单元格且保持内部布局不变，
+   * 避免多包一层影响 CollapseTags 基于父元素宽度的溢出测量
+   */
+  .rum-array-col-trigger {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+  }
+
   .explore-col {
     &.explore-prefix-icon-col {
       &:has([data-col-id='attributes.span_type']) {
