@@ -7,28 +7,40 @@
     }
   }
 
-  /* events.* 数组单元格的可点击容器：撑满单元格宽度，保持内部布局不变，
-   * 避免多包一层影响 CollapseTags 基于父元素宽度的溢出测量。
-   * 不设 height：td 为表格单元格，百分比高度解析不到，垂直居中由单元格自身承担（实测与普通文本列同一中线）
-   */
+  /* ===== 折叠数组列：可点击容器 + 命中区 + hover 下划线（同一组交互，以容器为根嵌套） ===== */
   .rum-array-col-trigger {
     display: flex;
     align-items: center;
+
+    /* 撑满单元格宽度、保持内部布局不变，避免多包一层影响 CollapseTags 基于父元素宽度的溢出测量。
+     * 不设 height：td 为表格单元格，百分比高度解析不到，垂直居中由单元格自身承担（实测与普通文本列同一中线）
+     */
     width: 100%;
     cursor: pointer;
-  }
 
-  /* 折叠数组列只有内容区可点：容器放弃命中，由值行与 [+N]（宽度均贴合内容）恢复。
-   * 不能改用 fit-content 收窄容器：CollapseTags 溢出测量取 .item-tags 的 parentNode 宽度，
-   * 容器退化为内容宽度后 +N 永不出现。
-   */
-  .rum-array-col-trigger:has(.rum-collapse-array-col) {
-    pointer-events: none;
+    /* 只有内容区（值行与 [+N]，宽度均贴合内容）可点：容器放弃命中后再由内容区恢复。
+     * 不能改用 fit-content 收窄容器：CollapseTags 溢出测量取 .item-tags 的 parentNode 宽度，
+     * 容器退化为内容宽度后 +N 永不出现。
+     */
+    &:has(.rum-collapse-array-col) {
+      pointer-events: none;
 
-    .item-tags,
-    .collapse-tag-visible {
-      pointer-events: auto;
-      cursor: pointer;
+      .item-tags,
+      .collapse-tag-visible {
+        pointer-events: auto;
+        cursor: pointer;
+      }
+    }
+
+    /* hover 值行与 [+N] 时显示下划线（组件内只放了透明 border 占位，避免 hover 时行高抖动） */
+    .rum-collapse-array-col {
+      &:has(.item-tags:hover),
+      &:has(.collapse-tag:hover) {
+        .item-tags,
+        .collapse-tag {
+          border-bottom-color: #4d4f56;
+        }
+      }
     }
   }
 
@@ -106,10 +118,6 @@
       }
 
       &:has([data-col-id='attributes.http.response.status_code']) {
-        @extend %condition-menu-inherit-color;
-      }
-
-      &:has([data-col-id='events.attributes.exception.type']) {
         @extend %condition-menu-inherit-color;
       }
     }

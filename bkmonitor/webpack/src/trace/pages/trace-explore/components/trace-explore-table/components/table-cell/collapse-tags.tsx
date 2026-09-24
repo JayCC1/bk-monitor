@@ -59,6 +59,12 @@ export default defineComponent({
       type: Boolean,
       default: true,
     },
+    /** 最少保持可见的标签数量（0 表示不限制，可折叠到只剩折叠标签）；
+     * 大于 0 时，仅剩一个可见标签的场景该标签会占满剩余空间并省略显示 */
+    minVisibleCount: {
+      type: Number,
+      default: 0,
+    },
     /** 标签溢出时溢出标签hover显示的提示内容 */
     ellipsisTip: {
       type: Function as PropType<(ellipsisList: any[] | string[]) => SlotReturnValue>,
@@ -113,6 +119,11 @@ export default defineComponent({
         const containerWidth = sectionRef.value?.parentNode?.getBoundingClientRect?.().width;
         let totalWidth = 0;
         let visibleCount = 0;
+        /** 最小可见数量下界：任何折叠分支的结果都不得低于它（同时不超过标签总数） */
+        const minVisibleCount = Math.min(Math.max(props.minVisibleCount, 0), props?.data?.length || 0);
+        const commitVisibleCount = (count: number) => {
+          calculateTagCount.value = Math.max(count, minVisibleCount);
+        };
 
         // 第一轮：计算在不显示折叠标签时能容纳的标签数量
         for (let i = 0; i < tagsList.length; i++) {
@@ -130,7 +141,7 @@ export default defineComponent({
 
         // 如果所有标签都能显示，则不需要折叠
         if (visibleCount === tagsList.length) {
-          calculateTagCount.value = visibleCount;
+          commitVisibleCount(visibleCount);
           return;
         }
 
@@ -138,7 +149,7 @@ export default defineComponent({
         const collectTagWidth = maxCountCollectTagRef.value?.getBoundingClientRect?.().width || 0;
         totalWidth = totalWidth + collectTagWidth + props.tagColGap;
         if (totalWidth < containerWidth) {
-          calculateTagCount.value = visibleCount;
+          commitVisibleCount(visibleCount);
           return;
         }
 
@@ -151,7 +162,8 @@ export default defineComponent({
           totalWidth = totalWidth - tagWidth - props.tagColGap;
           if (totalWidth < containerWidth) break;
         }
-        calculateTagCount.value = Math.max(visibleCount, 0); // 确保visibleCount不为负数
+        // 确保visibleCount不为负数，且不低于 minVisibleCount 声明的最小可见数量
+        commitVisibleCount(visibleCount);
       });
     }, 200);
 
@@ -214,7 +226,7 @@ export default defineComponent({
       }
     }
 
-    watch([() => props.data, () => props.enableEllipsis], () => {
+    watch([() => props.data, () => props.enableEllipsis, () => props.minVisibleCount], () => {
       calculateOverflow();
     });
 
@@ -250,11 +262,14 @@ export default defineComponent({
     const showList = (this.data || []).slice(0, this.calculateTagCount);
     /** 折叠的数据数组 */
     const ellipsisList = (this.data || []).slice(this.calculateTagCount);
+    /** 可见数已被压到 minVisibleCount 下界（说明剩余空间不足）：可见项占满剩余空间并省略显示 */
+    const isMinVisibleEllipsis =
+      this.minVisibleCount > 0 && showList.length > 0 && showList.length <= this.minVisibleCount;
     return (
       <span
         ref='tagContainerRef'
         style={this.cssVars}
-        class='bk-common-tag-show'
+        class={['bk-common-tag-show', { 'is-min-visible-ellipsis': isMinVisibleEllipsis }]}
       >
         <span
           ref='sectionRef'

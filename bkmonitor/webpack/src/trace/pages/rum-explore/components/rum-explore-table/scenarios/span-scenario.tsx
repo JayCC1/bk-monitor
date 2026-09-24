@@ -25,7 +25,6 @@
  */
 
 import { get } from '@vueuse/core';
-import { hexToRgba } from 'monitor-common/utils/colorHelpers';
 
 import { formatDuration } from '../../../../../components/trace-view/utils/date';
 import {
@@ -102,21 +101,6 @@ export class SpanScenario extends BaseScenario {
     'attributes.resource.cache.hit': {
       renderType: ExploreTableColumnTypeEnum.PREFIX_ICON,
       getRenderValue: row => this.getCacheHitRenderValue(row['attributes.resource.cache.hit']),
-    },
-    /**
-     * events.attributes.exception.type 列：异常类型（红色 Tag，多个异常事件逐项渲染）
-     * 该列同属 events.*，同样挂点击打开数组列表抽屉：TAGS 渲染由 cellRenderer 包一层转发，
-     * renderType / getRenderValue 一并保留，供包层内回落到内置 TAGS 渲染器取值。
-     */
-    'events.attributes.exception.type': {
-      renderType: ExploreTableColumnTypeEnum.TAGS,
-      getRenderValue: row => this.getExceptionTypeRenderValue(row['events.attributes.exception.type']),
-      cellRenderer: (row, column, renderCtx) =>
-        this.renderArrayCellTrigger(
-          row,
-          column.colKey,
-          renderCtx.cellRenderHandleMap[ExploreTableColumnTypeEnum.TAGS]?.(row, column, renderCtx)
-        ),
     },
     /** attributes.outcome.type 列：结果状态（图标 + 状态文案） */
     'attributes.outcome.type': {
@@ -203,7 +187,7 @@ export class SpanScenario extends BaseScenario {
     /** 与主表单元格共用同一套格式化实现，避免抽屉与单元格展示漂移 */
     const formatter = resolveArrayItemFormatter(get(this.context.fieldMap).get(colKey));
     return {
-      cellRenderer: row => {
+      cellRenderer: (row, column, renderCtx) => {
         const value = row?.[colKey];
         /** 非数组值按单项处理，使同一列内单值行与数组行的展示形态一致 */
         const list = Array.isArray(value) ? value : [value];
@@ -211,33 +195,24 @@ export class SpanScenario extends BaseScenario {
         const values = list.length
           ? list.map(item => formatArrayItem(item, formatter))
           : [ARRAY_ITEM_EMPTY_PLACEHOLDER];
-        return this.renderArrayCellTrigger(
-          row,
-          colKey,
-          (<CollapseArrayCell values={values} />) as unknown as SlotReturnValue
-        );
+        /** 整格（仅内容区，命中区与 hover 下划线见 theme/span-table-theme.scss）点击打开该行的数组列表抽屉 */
+        return (
+          <div
+            class='rum-array-col-trigger'
+            onClick={() => this.context.onArrayCellClick(row, colKey)}
+          >
+            <CollapseArrayCell
+              class='rum-collapse-array-col'
+              column={column}
+              minVisibleCount={1}
+              renderCtx={renderCtx}
+              rowId={renderCtx.getRowId?.(row)}
+              values={values}
+            />
+          </div>
+        ) as unknown as SlotReturnValue;
       },
     };
-  }
-
-  /**
-   * @description events.* 列单元格的可点击容器：整格点击打开该行的数组列表抽屉。
-   *              容器按「撑满单元格且不改变原有单元格布局」的方式声明（见 theme/span-table-theme.scss），
-   *              避免多包一层影响 CollapseTags 基于父元素宽度的溢出测量。
-   * @param {IRumSpanRecord} row 当前行数据
-   * @param {string} colKey 列键
-   * @param {SlotReturnValue} content 单元格内容（数组单元格或内置 TAGS 渲染结果）
-   * @returns {SlotReturnValue} 可点击的单元格
-   */
-  private renderArrayCellTrigger(row: IRumSpanRecord, colKey: string, content: SlotReturnValue): SlotReturnValue {
-    return (
-      <div
-        class='rum-array-col-trigger'
-        onClick={() => this.context.onArrayCellClick(row, colKey)}
-      >
-        {content}
-      </div>
-    ) as unknown as SlotReturnValue;
   }
 
   /**
@@ -421,24 +396,5 @@ export class SpanScenario extends BaseScenario {
     /** 后台字段元数据声明了枚举别名时优先取后台映射值，兜底用本地枚举文案 */
     const alias = this.getFieldOptionAlias('attributes.outcome.type', value);
     return { alias: alias || meta.label, prefixIcon: meta.icon };
-  }
-
-  /**
-   * @description 错误类型列渲染值：红色主题 Tag（无映射，原始字符串直接展示）
-   *              该列同属 events.*，值可能是数组（一条 span 携带多个异常事件），此时逐项渲染为独立 Tag；
-   *              TAGS 列本身走 CollapseTags，故溢出折叠与 +N 提示无需额外处理。
-   * @param {unknown} value 当前行错误类型值（如 'TypeError'，或 ['TypeError', 'RangeError']）
-   */
-  private getExceptionTypeRenderValue(value: unknown) {
-    const list = Array.isArray(value) ? value : [value];
-    return list
-      .filter(item => item !== null && item !== undefined && item !== '')
-      .map(item => ({
-        alias: String(item),
-        tagBgColor: '#FDE7E7',
-        tagColor: '#EA3636',
-        tagHoverBgColor: hexToRgba('#FDE7E7', 0.8),
-        tagHoverColor: hexToRgba('#EA3636', 0.8),
-      }));
   }
 }
