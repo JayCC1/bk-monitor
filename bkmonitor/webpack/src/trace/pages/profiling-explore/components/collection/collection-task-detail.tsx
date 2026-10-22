@@ -84,9 +84,9 @@ export default defineComponent({
                 </span>
               </div>
               <div class='collection-task-detail-actions'>
-                {action('icon-mc-edit', '编辑', this.readonly || this.busy, false, () => this.$emit('edit'))}
+                {action('icon-bianji', '编辑', this.readonly || this.busy, false, () => this.$emit('edit'))}
                 <span v-tippy={{ content: this.t('指定时间无执行记录'), onShow: () => schedule.type !== 'cron' }}>
-                  {action('icon-mc-history', '执行记录', schedule.type !== 'cron', false, () => this.$emit('history'))}
+                  {action('icon-History', '执行记录', schedule.type !== 'cron', false, () => this.$emit('history'))}
                 </span>
                 <span
                   v-tippy={{ content: this.t('请先停用任务后再删除'), onShow: () => task.task_status !== 'disabled' }}

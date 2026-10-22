@@ -340,7 +340,7 @@ export default defineComponent({
                       data={c.rows.value}
                       filterValue={{ schedule_type: state.scheduleTypes, task_status: state.statuses }}
                       headerAffixedTop={taskTableAffixed}
-                      horizontalScrollAffixedBottom={taskTableAffixed}
+                      needCustomScroll={false}
                       rowKey='task_id'
                       size='small'
                       sort={state.sort || undefined}
