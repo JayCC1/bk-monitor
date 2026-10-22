@@ -197,27 +197,31 @@ export default defineComponent({
                 }}
               >
                 <Tab.TabPanel
-                  label={() => (
-                    <span class='collection-execution-tab-label'>
-                      <i
-                        class='collection-execution-icon is-results'
-                        aria-hidden='true'
-                      />
-                      {this.t('执行结果')}
-                    </span>
-                  )}
+                  v-slots={{
+                    label: () => (
+                      <span class='collection-execution-tab-label'>
+                        <i
+                          class='collection-execution-icon is-results'
+                          aria-hidden='true'
+                        />
+                        {this.t('执行结果')}
+                      </span>
+                    ),
+                  }}
                   name='results'
                 />
                 <Tab.TabPanel
-                  label={() => (
-                    <span class='collection-execution-tab-label'>
-                      <i
-                        class='collection-execution-icon is-snapshot'
-                        aria-hidden='true'
-                      />
-                      {this.t('配置快照')}
-                    </span>
-                  )}
+                  v-slots={{
+                    label: () => (
+                      <span class='collection-execution-tab-label'>
+                        <i
+                          class='collection-execution-icon is-snapshot'
+                          aria-hidden='true'
+                        />
+                        {this.t('配置快照')}
+                      </span>
+                    ),
+                  }}
                   name='snapshot'
                 />
               </Tab>
