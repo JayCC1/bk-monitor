@@ -47,6 +47,13 @@ import type { CollectionMeta, CollectionTask } from '../../types/collection';
 
 import './collection-task-form.scss';
 
+// 主机选择弹窗（ip-selector 内置 magic-vue 弹层，transfer 到 body）的 z-index 取自 magic-vue 的全局计数器，
+// 侧栏 z-index 用同一计数器保证弹窗必然更高；只能在实例创建时取一次，若在 render 中取值，
+// 弹窗打开后的任意表单重渲染都会让侧栏 z-index 反超并重新压住弹窗
+const getNextZIndex = () =>
+  (window as unknown as { __bk_zIndex_manager?: { nextZIndex?: () => number } }).__bk_zIndex_manager?.nextZIndex?.() ||
+  2000;
+
 export default defineComponent({
   name: 'CollectionTaskForm',
   props: {
@@ -58,6 +65,7 @@ export default defineComponent({
   emits: { close: () => true, saved: (_immediate: boolean) => true },
   setup(props, { emit }) {
     const { t, locale } = useI18n();
+    const sidesliderZIndex = getNextZIndex();
     const form = useCollectionForm(props.meta, props.bizId, props.timezone, props.task, immediate =>
       emit('saved', immediate)
     );
@@ -87,7 +95,7 @@ export default defineComponent({
       const selectedDate = key === 'endAt' && type === 'date' ? date?.endOf('day').millisecond(0) : date;
       form.patch({ [key]: selectedDate?.valueOf() ?? null });
     };
-    return { t, locale, form, crontab, footerBoundary, footerSticky, close, changeDate };
+    return { t, locale, form, crontab, footerBoundary, footerSticky, close, changeDate, sidesliderZIndex };
   },
   render() {
     const f = this.form;
@@ -95,14 +103,16 @@ export default defineComponent({
     const healthyHostCount = d.hosts.some(host => host.alive === undefined)
       ? '--'
       : d.hosts.filter(host => host.alive === 1).length;
-    const numericField = (key: 'duration_sec' | 'frequency_hz' | 'port', suffix: string) => (
+    const numericField = (key: 'duration_sec' | 'frequency_hz' | 'port', suffix?: string) => (
       <Input
+        v-slots={suffix ? { suffix: () => <span class='collection-input-suffix'>{suffix}</span> } : undefined}
+        min={0}
         modelValue={d.collector[key]}
         type='number'
-        onInput={value => f.patch({ collector: { ...d.collector, [key]: value === '' ? undefined : Number(value) } })}
-      >
-        {{ suffix: () => <span class='collection-input-suffix'>{suffix}</span> }}
-      </Input>
+        onUpdate:modelValue={value =>
+          f.patch({ collector: { ...d.collector, [key]: value === '' ? undefined : Number(value) } })
+        }
+      />
     );
     const dateField = (key: 'endAt' | 'executeAt' | 'startAt') => (
       <DatePicker
@@ -122,6 +132,7 @@ export default defineComponent({
         quickClose={false}
         title={this.t(this.task ? '编辑任务' : '新建任务')}
         transfer={false}
+        zIndex={this.sidesliderZIndex}
         onClosed={this.close}
       >
         {{
@@ -290,7 +301,7 @@ export default defineComponent({
                         label={this.t('端口')}
                         required
                       >
-                        {numericField('port', '')}
+                        {numericField('port')}
                       </Form.FormItem>
                     </div>
                   )}
@@ -344,26 +355,32 @@ export default defineComponent({
                       )}
                     </Form.FormItem>
                   )}
-                  <Button
-                    class='collection-advanced-button'
-                    theme='primary'
-                    text
-                    onClick={() => {
-                      f.advancedOpen.value = !f.advancedOpen.value;
-                    }}
-                  >
-                    {f.advancedOpen.value ? '▴' : '▾'} {this.t('高级设置')}
-                  </Button>
-                  {f.advancedOpen.value && (
-                    <Form.FormItem label={this.t('资源不足时提前终止')}>
-                      <Switcher
-                        modelValue={d.resourceGuard.auto_stop_on_resource_pressure}
-                        onChange={auto_stop_on_resource_pressure =>
-                          f.patch({ resourceGuard: { ...d.resourceGuard, auto_stop_on_resource_pressure } })
-                        }
-                      />
-                    </Form.FormItem>
-                  )}
+                  <div class='collection-advanced'>
+                    <Button
+                      class='collection-advanced-button'
+                      theme='primary'
+                      text
+                      onClick={() => {
+                        f.advancedOpen.value = !f.advancedOpen.value;
+                      }}
+                    >
+                      <i class={['icon-monitor', 'icon-double-down', { 'is-open': f.advancedOpen.value }]} />{' '}
+                      {this.t('高级设置')}
+                    </Button>
+                    {f.advancedOpen.value && (
+                      <div class='collection-resource-guard'>
+                        <Switcher
+                          modelValue={d.resourceGuard.auto_stop_on_resource_pressure}
+                          size='small'
+                          theme='primary'
+                          onChange={auto_stop_on_resource_pressure =>
+                            f.patch({ resourceGuard: { ...d.resourceGuard, auto_stop_on_resource_pressure } })
+                          }
+                        />
+                        <span>{this.t('资源不足时，提前终止')}</span>
+                      </div>
+                    )}
+                  </div>
                   <Form.FormItem
                     label={this.t('执行方式')}
                     required
@@ -384,16 +401,16 @@ export default defineComponent({
                         ))}
                     </Radio.Group>
                   </Form.FormItem>
-                  {d.scheduleType === 'immediate' && (
+                  {/* {d.scheduleType === 'immediate' && (
                     <p class='collection-muted'>
                       {this.t('立即执行仅支持 Linux 主机，提交后可在采集任务历史查看进度')}
                     </p>
-                  )}
-                  {d.scheduleType !== 'immediate' && (
+                  )} */}
+                  {/* {d.scheduleType !== 'immediate' && (
                     <p class='collection-muted'>
                       {this.t('时区')}：{d.timezone}
                     </p>
-                  )}
+                  )} */}
                   {d.scheduleType === 'once_at' && (
                     <Form.FormItem
                       label={this.t('执行时间')}

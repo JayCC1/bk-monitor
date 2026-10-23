@@ -112,7 +112,7 @@ export default {
   请选择目标主机: 'Select target hosts.',
   请选择目标进程: 'Select target processes.',
   请选择采集方式和类型: 'Select a collection method and type.',
-  资源不足时提前终止: 'Stop early when resources are insufficient',
+  '资源不足时，提前终止': 'Stop early when resources are insufficient',
   输入条件并查询进程: 'Enter conditions to query processes.',
   '进程查询失败，请重试': 'Failed to query processes. Please retry.',
   进程选择: 'Process selection',

@@ -159,7 +159,7 @@ export default defineComponent({
                 '高级设置',
                 <span class='collection-config-check'>
                   <i class='icon-monitor icon-mc-check-small' />
-                  {this.t('资源不足时提前终止')}
+                  {this.t('资源不足时，提前终止')}
                 </span>
               )}
           </dl>
