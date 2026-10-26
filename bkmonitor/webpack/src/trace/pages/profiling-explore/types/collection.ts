@@ -44,18 +44,21 @@ export interface CollectionDraft {
   timezone: string;
 }
 export type CollectionFieldError = Error & { field: CollectionFieldKey };
+/** 与表单读取值的字段名保持一致，便于定位到对应 form item */
 export type CollectionFieldKey =
-  | 'address'
   | 'cron'
-  | 'duration'
+  | 'duration_sec'
   | 'endAt'
   | 'executeAt'
-  | 'frequency'
+  | 'frequency_hz'
   | 'hosts'
+  | 'ip_address'
   | 'method'
   | 'name'
+  | 'port'
   | 'process'
-  | 'schedule'
+  | 'scheduleType'
+  | 'stack_unwind'
   | 'startAt';
 
 export interface CollectionHost {

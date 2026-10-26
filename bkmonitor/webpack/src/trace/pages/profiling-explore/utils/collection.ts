@@ -183,8 +183,8 @@ export const collectionTarget = (hosts: CollectionHost[]) => ({
 
 /** 表单项改动后，哪些字段的旧错误提示应随之清除 */
 export const ERROR_FIELDS_BY_DRAFT_KEY: Partial<Record<keyof CollectionDraft, CollectionFieldKey[]>> = {
-  collectionType: ['method', 'duration'],
-  collector: ['duration', 'frequency', 'address'],
+  collectionType: ['method', 'duration_sec'],
+  collector: ['duration_sec', 'frequency_hz', 'stack_unwind', 'ip_address', 'port'],
   cron: ['cron'],
   endAt: ['endAt'],
   executeAt: ['executeAt'],
@@ -193,7 +193,7 @@ export const ERROR_FIELDS_BY_DRAFT_KEY: Partial<Record<keyof CollectionDraft, Co
   name: ['name'],
   process: ['process'],
   processMode: ['process'],
-  scheduleType: ['schedule', 'executeAt', 'startAt', 'endAt', 'cron'],
+  scheduleType: ['scheduleType', 'executeAt', 'startAt', 'endAt', 'cron'],
   startAt: ['startAt'],
 };
 
@@ -330,11 +330,15 @@ export function collectionFieldErrors(
   const collector = draft.collector;
   const positive = (value: number) => Number.isFinite(value) && value > 0;
   if (draft.collectionType !== 'go_heap' && (!positive(collector.duration_sec) || collector.duration_sec > 300))
-    add('duration', '采集时长须大于 0 且不超过 300 秒');
-  if (draft.method === 'perf' && (!positive(collector.frequency_hz) || !collector.stack_unwind))
-    add('frequency', '请填写有效的采样频率和栈展开方式');
-  if (draft.method === 'golang' && (!collector.ip_address?.trim() || !positive(collector.port)))
-    add('address', '请填写有效的采集地址和端口');
+    add('duration_sec', '采集时长须大于 0 且不超过 300 秒');
+  if (draft.method === 'perf') {
+    if (!positive(collector.frequency_hz)) add('frequency_hz', '请输入有效的采样频率');
+    if (!collector.stack_unwind) add('stack_unwind', '请选择栈展开方式');
+  }
+  if (draft.method === 'golang') {
+    if (!collector.ip_address?.trim()) add('ip_address', '请输入采集地址');
+    if (!positive(collector.port)) add('port', '请输入有效的端口');
+  }
   if (draft.method !== 'golang') {
     const message = processFieldError(draft);
     if (message) add('process', message);
@@ -345,7 +349,7 @@ export function collectionFieldErrors(
       else if (hostPids.length > 500) add('process', '最多选择 500 个进程');
     }
   }
-  if (editing && draft.scheduleType === 'immediate') add('schedule', '计划任务不支持改为立即执行');
+  if (editing && draft.scheduleType === 'immediate') add('scheduleType', '计划任务不支持改为立即执行');
   if (draft.scheduleType === 'once_at' && (!draft.executeAt || draft.executeAt <= now))
     add('executeAt', '指定执行时间须晚于当前时间');
   if (draft.scheduleType === 'cron') {

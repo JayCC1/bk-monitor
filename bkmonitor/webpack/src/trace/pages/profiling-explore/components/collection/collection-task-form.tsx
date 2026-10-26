@@ -352,7 +352,7 @@ export default defineComponent({
                         required
                       >
                         {numericField('duration_sec', this.t('秒'))}
-                        {fieldError('duration')}
+                        {fieldError('duration_sec')}
                       </Form.FormItem>
                     )}
                   </div>
@@ -366,13 +366,14 @@ export default defineComponent({
                           modelValue={d.collector.ip_address}
                           onInput={ip_address => f.patch({ collector: { ...d.collector, ip_address } })}
                         />
-                        {fieldError('address')}
+                        {fieldError('ip_address')}
                       </Form.FormItem>
                       <Form.FormItem
                         label={this.t('端口')}
                         required
                       >
                         {numericField('port')}
+                        {fieldError('port')}
                       </Form.FormItem>
                     </div>
                   )}
@@ -383,7 +384,7 @@ export default defineComponent({
                         required
                       >
                         {numericField('frequency_hz', 'Hz')}
-                        {fieldError('frequency')}
+                        {fieldError('frequency_hz')}
                       </Form.FormItem>
                       <Form.FormItem
                         label={this.t('栈展开方式')}
@@ -402,6 +403,7 @@ export default defineComponent({
                             />
                           ))}
                         </Select>
+                        {fieldError('stack_unwind')}
                       </Form.FormItem>
                     </div>
                   )}
@@ -473,7 +475,7 @@ export default defineComponent({
                           </Radio>
                         ))}
                     </Radio.Group>
-                    {fieldError('schedule')}
+                    {fieldError('scheduleType')}
                   </Form.FormItem>
                   {/* {d.scheduleType === 'immediate' && (
                     <p class='collection-muted'>
