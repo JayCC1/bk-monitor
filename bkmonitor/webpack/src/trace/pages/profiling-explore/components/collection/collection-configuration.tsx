@@ -92,7 +92,7 @@ export default defineComponent({
         <section>
           <h3>{this.t('任务信息')}</h3>
           <dl>
-            {row('任务名称', task.name)}
+            {row('trace-任务名称', task.name)}
             {row(
               '目标主机',
               <>

@@ -28,6 +28,14 @@
       .bk-date-picker {
         width: 100%;
       }
+
+      // 提交校验错误，跟随在对应 form item 的控件下方
+      .collection-form-item-error {
+        margin-top: 4px;
+        font-size: 12px;
+        line-height: 20px;
+        color: #ea3636;
+      }
     }
 
     .collection-advanced {
@@ -195,10 +203,6 @@
     &.is-sticky {
       background: #fafbfd;
       box-shadow: 0 -2px 4px 0 #0000000f;
-    }
-
-    > .bk-alert {
-      margin-bottom: 12px;
     }
 
     > div:last-child {

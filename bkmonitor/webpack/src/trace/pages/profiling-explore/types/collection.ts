@@ -1,44 +1,3 @@
-import type { CollectionHistoryFilters, CollectionResultSelection } from './collection-history';
-import type { CollectionResultsState } from './collection-results';
-
-export interface CollectionDraft {
-  collectionType: CollectionType;
-  collector: CollectorConfig;
-  cron: string;
-  endAt: null | number;
-  executeAt: null | number;
-  hosts: CollectionHost[];
-  method: CollectionMethod;
-  name: string;
-  process: ProcessDraft;
-  processMode: ProcessMode;
-  resourceGuard: ResourceGuardConfig;
-  scheduleType: ScheduleType;
-  startAt: null | number;
-  timezone: string;
-}
-export interface CollectionHost {
-  [key: string]: unknown;
-  alive?: number;
-  cloud_area?: { id: number; name?: string };
-  host_id: number;
-  ip?: string;
-  ipv6?: string;
-  os_name?: string;
-  os_type?: string;
-}
-export interface CollectionMeta {
-  collection_methods: CollectionMethod[];
-  collection_types_by_method: Record<CollectionMethod, CollectionType[]>;
-  collector_config: Record<CollectionType, CollectorConfig>;
-  enabled: boolean;
-  execution_status_filters?: string[];
-  process_selector_types: ProcessMode[];
-  resource_guard_config: ResourceGuardConfig;
-  schedule?: { cron?: { cron_expression: string } };
-  schedule_types: ScheduleType[];
-  stack_unwinds: string[];
-}
 /*
  * Tencent is pleased to support the open source community by making
  * 蓝鲸智云PaaS平台 (BlueKing PaaS) available.
@@ -64,6 +23,63 @@ export interface CollectionMeta {
  * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
+
+import type { CollectionHistoryFilters, CollectionResultSelection } from './collection-history';
+import type { CollectionResultsState } from './collection-results';
+
+export interface CollectionDraft {
+  collectionType: CollectionType;
+  collector: CollectorConfig;
+  cron: string;
+  endAt: null | number;
+  executeAt: null | number;
+  hosts: CollectionHost[];
+  method: CollectionMethod;
+  name: string;
+  process: ProcessDraft;
+  processMode: ProcessMode;
+  resourceGuard: ResourceGuardConfig;
+  scheduleType: ScheduleType;
+  startAt: null | number;
+  timezone: string;
+}
+export type CollectionFieldError = Error & { field: CollectionFieldKey };
+export type CollectionFieldKey =
+  | 'address'
+  | 'cron'
+  | 'duration'
+  | 'endAt'
+  | 'executeAt'
+  | 'frequency'
+  | 'hosts'
+  | 'method'
+  | 'name'
+  | 'process'
+  | 'schedule'
+  | 'startAt';
+
+export interface CollectionHost {
+  [key: string]: unknown;
+  alive?: number;
+  cloud_area?: { id: number; name?: string };
+  host_id: number;
+  ip?: string;
+  ipv6?: string;
+  os_name?: string;
+  os_type?: string;
+}
+export interface CollectionMeta {
+  collection_methods: CollectionMethod[];
+  collection_types_by_method: Record<CollectionMethod, CollectionType[]>;
+  collector_config: Record<CollectionType, CollectorConfig>;
+  enabled: boolean;
+  execution_status_filters?: string[];
+  process_selector_types: ProcessMode[];
+  resource_guard_config: ResourceGuardConfig;
+  schedule?: { cron?: { cron_expression: string } };
+  schedule_types: ScheduleType[];
+  stack_unwinds: string[];
+}
 export type CollectionMethod = 'golang' | 'java' | 'perf';
 
 export interface CollectionPayload {

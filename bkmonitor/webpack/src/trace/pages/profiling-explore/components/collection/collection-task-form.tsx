@@ -23,9 +23,9 @@
  * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-import { type PropType, defineComponent, shallowRef, watch } from 'vue';
+import { type PropType, defineComponent, nextTick, shallowRef, watch } from 'vue';
 
-import { Alert, Button, DatePicker, Exception, Form, Input, Radio, Select, Sideslider, Switcher } from 'bkui-vue';
+import { Button, DatePicker, Exception, Form, Input, Radio, Select, Sideslider, Switcher } from 'bkui-vue';
 import dayjs from 'dayjs';
 import { useI18n } from 'vue-i18n';
 
@@ -43,34 +43,51 @@ import CollectionCrontab from './collection-crontab';
 import CollectionHostSelector from './collection-host-selector';
 import CollectionProcessSelector from './collection-process-selector';
 
-import type { CollectionMeta, CollectionTask } from '../../types/collection';
+import type { CollectionFieldKey, CollectionMeta, CollectionTask } from '../../types/collection';
 
 import './collection-task-form.scss';
 
-// 主机选择弹窗（ip-selector 内置 magic-vue 弹层，transfer 到 body）的 z-index 取自 magic-vue 的全局计数器，
-// 侧栏 z-index 用同一计数器保证弹窗必然更高；只能在实例创建时取一次，若在 render 中取值，
-// 弹窗打开后的任意表单重渲染都会让侧栏 z-index 反超并重新压住弹窗
+/**
+ * @description 取下一个可用 z-index，magic-vue 计数器不可用时兜底 2000
+ *
+ * 主机选择弹窗（ip-selector 内置 magic-vue 弹层，transfer 到 body）的 z-index 取自 magic-vue 的全局计数器，
+ * 侧栏 z-index 用同一计数器保证弹窗必然更高；只能在实例创建时取一次，若在 render 中取值，
+ * 弹窗打开后的任意表单重渲染都会让侧栏 z-index 反超并重新压住弹窗
+ * @returns 侧栏使用的 z-index
+ */
 const getNextZIndex = () =>
   (window as unknown as { __bk_zIndex_manager?: { nextZIndex?: () => number } }).__bk_zIndex_manager?.nextZIndex?.() ||
   2000;
 
+/** 采集任务新建 / 编辑侧栏表单 */
 export default defineComponent({
   name: 'CollectionTaskForm',
   props: {
+    /** 业务 ID */
     bizId: { type: Number, required: true },
+    /** 采集能力元信息，决定可选的方式、类型与默认配置 */
     meta: { type: Object as PropType<CollectionMeta>, required: true },
+    /** 待编辑的采集任务，缺省表示新建 */
     task: { type: Object as PropType<CollectionTask>, default: undefined },
+    /** 默认时区，时间选择按此时区解析并回写 */
     timezone: { type: String, required: true },
   },
+  /** 对外事件：close 关闭侧栏；saved 保存成功，参数为是否立即执行 */
   emits: { close: () => true, saved: (_immediate: boolean) => true },
   setup(props, { emit }) {
     const { t, locale } = useI18n();
+    /** 侧栏 z-index，实例创建时取一次，保证始终低于主机选择弹窗 */
     const sidesliderZIndex = getNextZIndex();
     const form = useCollectionForm(props.meta, props.bizId, props.timezone, props.task, immediate =>
       emit('saved', immediate)
     );
+    /** 执行周期组件实例，提交前用于校验 cron 表达式 */
     const crontab = shallowRef<InstanceType<typeof CollectionCrontab>>();
+    /** 表单滚动容器，用于把首条错误滚动到可视区 */
+    const formBody = shallowRef<HTMLElement>();
+    /** 底部操作栏下方的哨兵元素，用其可见性判断是否需要吸底 */
     const footerBoundary = shallowRef<HTMLElement>();
+    /** 底部操作栏是否吸底（哨兵未完全可见时为 true） */
     const footerSticky = shallowRef(false);
     watch(
       footerBoundary,
@@ -87,16 +104,53 @@ export default defineComponent({
       },
       { flush: 'post' }
     );
+    /**
+     * @description 关闭侧栏，提交加载中不允许关闭
+     * @returns 无
+     */
     const close = () => {
       if (!form.loading.value) emit('close');
     };
+    /**
+     * @description 等错误节点渲染完成后，把首条错误滚动到可视区中部
+     * @returns 无
+     */
+    const scrollToFirstError = async () => {
+      await nextTick();
+      formBody.value
+        ?.querySelector<HTMLElement>('[data-field-error]')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+    /**
+     * @description 把日期选择器返回的时间串转成时间戳写入草稿
+     * @param key 目标字段，结束时间 / 执行时间 / 开始时间
+     * @param value 日期选择器返回的时间串，空串表示清空
+     * @param type 选择器变更类型，date 表示仅选日期
+     * @returns 无
+     */
     const changeDate = (key: 'endAt' | 'executeAt' | 'startAt', value: string, type: string) => {
       const date = value ? dayjs.tz(value, form.draft.value.timezone) : null;
       const selectedDate = key === 'endAt' && type === 'date' ? date?.endOf('day').millisecond(0) : date;
       form.patch({ [key]: selectedDate?.valueOf() ?? null });
     };
-    return { t, locale, form, crontab, footerBoundary, footerSticky, close, changeDate, sidesliderZIndex };
+    return {
+      t,
+      locale,
+      form,
+      crontab,
+      formBody,
+      footerBoundary,
+      footerSticky,
+      close,
+      changeDate,
+      scrollToFirstError,
+      sidesliderZIndex,
+    };
   },
+  /**
+   * @description 渲染侧栏表单：基础配置、采集方式相关配置、进程选择、执行方式与底部操作
+   * @returns 侧栏表单节点
+   */
   render() {
     const f = this.form;
     const d = f.draft.value;
@@ -114,6 +168,15 @@ export default defineComponent({
         }
       />
     );
+    const fieldError = (key: CollectionFieldKey) =>
+      f.fieldErrors.value[key] ? (
+        <div
+          class='collection-form-item-error'
+          data-field-error={key}
+        >
+          {f.fieldErrors.value[key]}
+        </div>
+      ) : null;
     const dateField = (key: 'endAt' | 'executeAt' | 'startAt') => (
       <DatePicker
         modelValue={d[key] ? formatCollectionTime(d[key], d.timezone) : ''}
@@ -138,13 +201,16 @@ export default defineComponent({
         {{
           default: () => (
             <>
-              <div class='collection-form-body'>
+              <div
+                ref='formBody'
+                class='collection-form-body'
+              >
                 <Form
                   formType='vertical'
                   model={d}
                 >
                   <Form.FormItem
-                    label={this.t('任务名称')}
+                    label={this.t('trace-任务名称')}
                     required
                   >
                     <Input
@@ -152,6 +218,7 @@ export default defineComponent({
                       placeholder={this.t('请输入任务名称')}
                       onInput={name => f.patch({ name })}
                     />
+                    {fieldError('name')}
                   </Form.FormItem>
                   <Form.FormItem
                     label={this.t('目标主机')}
@@ -239,6 +306,7 @@ export default defineComponent({
                         </Button>
                       </div>
                     )}
+                    {fieldError('hosts')}
                   </Form.FormItem>
                   <div class='collection-form-columns'>
                     <Form.FormItem
@@ -258,6 +326,7 @@ export default defineComponent({
                           />
                         ))}
                       </Select>
+                      {fieldError('method')}
                     </Form.FormItem>
                     <Form.FormItem
                       label={this.t('采集类型')}
@@ -283,6 +352,7 @@ export default defineComponent({
                         required
                       >
                         {numericField('duration_sec', this.t('秒'))}
+                        {fieldError('duration')}
                       </Form.FormItem>
                     )}
                   </div>
@@ -296,6 +366,7 @@ export default defineComponent({
                           modelValue={d.collector.ip_address}
                           onInput={ip_address => f.patch({ collector: { ...d.collector, ip_address } })}
                         />
+                        {fieldError('address')}
                       </Form.FormItem>
                       <Form.FormItem
                         label={this.t('端口')}
@@ -312,6 +383,7 @@ export default defineComponent({
                         required
                       >
                         {numericField('frequency_hz', 'Hz')}
+                        {fieldError('frequency')}
                       </Form.FormItem>
                       <Form.FormItem
                         label={this.t('栈展开方式')}
@@ -353,6 +425,7 @@ export default defineComponent({
                           </Exception>
                         </div>
                       )}
+                      {fieldError('process')}
                     </Form.FormItem>
                   )}
                   <div class='collection-advanced'>
@@ -400,6 +473,7 @@ export default defineComponent({
                           </Radio>
                         ))}
                     </Radio.Group>
+                    {fieldError('schedule')}
                   </Form.FormItem>
                   {/* {d.scheduleType === 'immediate' && (
                     <p class='collection-muted'>
@@ -417,6 +491,7 @@ export default defineComponent({
                       required
                     >
                       {dateField('executeAt')}
+                      {fieldError('executeAt')}
                     </Form.FormItem>
                   )}
                   {d.scheduleType === 'cron' && (
@@ -427,12 +502,14 @@ export default defineComponent({
                           required
                         >
                           {dateField('startAt')}
+                          {fieldError('startAt')}
                         </Form.FormItem>
                         <Form.FormItem
                           label={this.t('结束时间')}
                           required
                         >
                           {dateField('endAt')}
+                          {fieldError('endAt')}
                         </Form.FormItem>
                       </div>
                       <Form.FormItem
@@ -445,6 +522,7 @@ export default defineComponent({
                           value={d.cron}
                           onChange={cron => f.patch({ cron })}
                         />
+                        {fieldError('cron')}
                       </Form.FormItem>
                     </>
                   )}
@@ -461,18 +539,14 @@ export default defineComponent({
                 )}
               </div>
               <div class={['collection-form-footer', { 'is-sticky': this.footerSticky }]}>
-                {f.error.value && (
-                  <Alert
-                    theme='danger'
-                    title={f.error.value}
-                  />
-                )}
                 <div>
                   <Button
                     disabled={!d.name.trim() || !d.hosts.length}
                     loading={f.loading.value}
                     theme='primary'
-                    onClick={() => f.submit(() => this.crontab?.validate())}
+                    onClick={async () => {
+                      if (!(await f.submit(() => this.crontab?.validate()))) this.scrollToFirstError();
+                    }}
                   >
                     {this.t('确定')}
                   </Button>
