@@ -612,14 +612,6 @@ export default class StrategySetTarget extends Vue {
     opacity: 0;
   }
 
-  :deep(.input-text) {
-    &.password {
-      .control-icon {
-        display: none;
-      }
-    }
-  }
-
   &-list {
     @include template-list;
   }

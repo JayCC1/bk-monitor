@@ -365,6 +365,29 @@
                 </verify-input>
               </template>
               <template v-else-if="item.type === 'service' || item.type === 'host'" />
+              <template v-else-if="item.type === 'file' && item.multiple">
+                <div
+                  :key="index"
+                  class="param-item"
+                >
+                  <div :class="{ 'container-tips': true, required: item.required }">
+                    {{ item.description || item.name }}
+                  </div>
+                  <verify-input
+                    :show-validate.sync="item.validate.isValidate"
+                    :validator="item.validate"
+                    position="right"
+                  >
+                    <config-map-upload
+                      :key="`${info.plugin.id}-${item.name}`"
+                      :accept="item.accept"
+                      :multiple="item.multiple"
+                      :value="item.default"
+                      @change="files => handleConfigMapChange(files, item)"
+                    />
+                  </verify-input>
+                </div>
+              </template>
               <template v-else>
                 <verify-input
                   :key="index"
@@ -586,6 +609,7 @@ import AutoCompleteInput from './auto-complete-input';
 import AutoMulti from './auto-multi';
 import CollectorIntroduction from './collector-introduction';
 import CollectorLog from './collector-log';
+import ConfigMapUpload from './config-map-upload.tsx';
 import PERIOD_LIST from './data';
 import IndicatorPreview from './indicator-preview';
 import PluginSelector, { LOG_PLUGIN_ID, PROCESS_PLUGIN_ID } from './plugin-selector.tsx';
@@ -607,6 +631,7 @@ export default {
     AutoMulti,
     ProcessParams,
     CycleInput,
+    ConfigMapUpload,
     PluginSelector,
     TagSwitch,
   },
@@ -1242,7 +1267,7 @@ export default {
           if (!(item.auth_json === undefined)) {
             configValidateList.push(this.handleParamValidate(item));
           }
-          if (item.type === 'file') {
+          if (item.type === 'file' && !item.multiple) {
             configValidateList.push(this.handleParamValidate(item));
           } else {
             configValidateList.push(this.handleInput(item));
@@ -1292,7 +1317,7 @@ export default {
       let res = {
         validate: false,
       };
-      if (item.type === 'file') {
+      if (item.type === 'file' && !item.multiple) {
         res.validate = item.validate.isValidate;
         return res;
       }
@@ -1512,7 +1537,7 @@ export default {
                   if (this.config.mode === 'edit' || this.isClone) {
                     const mode = item.mode === 'collector' ? 'collector' : 'plugin';
                     const paramDefault = this.info.params[mode][item.key || item.name];
-                    if (item.type === 'file') {
+                    if (item.type === 'file' && !item.multiple) {
                       item.default = paramDefault.filename;
                       item.file_base64 = paramDefault.file_base64;
                     } else {
@@ -1892,7 +1917,7 @@ export default {
       let port = null;
       // 如果是插件类型为 'Exporter'，则显示绑定主机和绑定端口
       const data = configs.map(item => {
-        if (item.type === 'file' && typeof item.default === 'object' && item.key !== 'yaml') {
+        if (item.type === 'file' && !item.multiple && typeof item.default === 'object' && item.key !== 'yaml') {
           const temp = deepClone(item.default);
           item.default = temp.filename;
           item.file_base64 = temp.file_base64;
@@ -2010,6 +2035,10 @@ export default {
     configJsonFileChange(file, item) {
       item.default = file.name;
       item.file_base64 = file.fileContent;
+    },
+    handleConfigMapChange(files, item) {
+      item.default = files;
+      this.handleInput(item);
     },
     handleErrorMessage(msg, item) {
       item.validate.isValidate = !!msg;

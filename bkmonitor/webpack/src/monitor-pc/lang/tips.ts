@@ -222,6 +222,7 @@ export default {
   '查看关联 Trace': 'View associated Trace',
   '可以切换到 范围查询，根据条件筛选 Trace': 'You can switch to range query, filter Trace according to conditions',
   点击上传或将文件拖到此处: 'Click to upload or drag the file here',
+  支持同时上传多个ConfigMap配置: 'Multiple ConfigMap files can be uploaded at once',
   '文件解析可能耗费较长时间，可先选择已解析文件查看':
     'File parsing may take a long time, you can select the parsed file first to view',
   请上传文件后查看: 'Please upload the file and view it after that',
